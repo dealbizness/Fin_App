@@ -69,18 +69,18 @@ To link the app directly to your Google Sheet:
    https://docs.google.com/spreadsheets/d/1Dn3-FL72I2WUfnNc9DyadKeg3onoj243NCzeiMjoW04/edit
    ```
 2. Click **Extensions** → **Apps Script**.
-3. Open `Code.gs` in the editor.
-4. Replace its content with the updated `FinanceApp/Code.gs` (this adds the JSON REST API endpoint for the web app while keeping existing features).
-5. Click **Save** (Ctrl + S).
+3. Select `Code.gs` in the editor.
+4. Replace its entire content with the updated [`FinanceApp/Code.gs`](file:///c:/Users/bizzs/OneDrive/Desktop/Venu/FinanceApp/Code.gs) (which includes full support for Investments, Partial Repayments, and Customer auto-linking).
+5. Click **Save** (💾 or Ctrl + S).
 
-### Step 2: Deploy as Web App
-1. In the Apps Script editor, click **Deploy** → **Manage deployments** (or **New deployment**).
-2. Click the pencil icon to edit or create a **New deployment**:
-   - **Type**: Web app
-   - **Execute as**: `Me (your email)`
-   - **Who has access**: `Anyone` *(Required so your web app can send/receive loan data)*
-3. Click **Deploy**.
-4. Copy the **Web app URL** (starts with `https://script.google.com/macros/s/.../exec`).
+### Step 2: Deploy New Version in Apps Script (Crucial Step!)
+> ⚠️ **Important Google Apps Script Rule:**
+> In Google Apps Script, editing code does **NOT** update the live `/exec` URL automatically. You must publish a **New version**:
+1. In the Apps Script editor, click **Deploy** (blue button at top-right) → **Manage deployments**.
+2. Click the **Pencil icon (Edit)** next to your active deployment.
+3. Under **Version**, click the dropdown and choose **"New version"**.
+4. Click **Deploy**.
+5. Done! Your live Google Apps Script endpoint is now updated with full Investments support!
 
 ### Step 3: Connect in the App
 1. Open `FinanceApp/index.html`.

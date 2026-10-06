@@ -1,5 +1,5 @@
 // VR Finance Service Worker
-const CACHE_NAME = 'vrfinance-v2.0';
+const CACHE_NAME = 'vrfinance-v2.1';
 const ASSETS = [
   './',
   './index.html',

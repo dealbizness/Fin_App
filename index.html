@@ -579,7 +579,7 @@
                 </small>
               </div>
 
-              <div class="action-btn-group" style="margin-top: 16px;">
+              <div class="action-btn-group" style="margin-top: 16px; flex-wrap:wrap; gap:8px;">
                 <button class="btn btn-primary" onclick="testAndSaveSheetConnection()">
                   <span class="material-symbols-rounded">cloud_sync</span>
                   <span>Test & Save Connection</span>
@@ -588,9 +588,14 @@
                   <span class="material-symbols-rounded">refresh</span>
                   <span>Pull Latest Data Now</span>
                 </button>
+                <button class="btn btn-secondary" onclick="verifyAppsScriptVersion()" style="border-color:var(--gold); color:var(--gold);">
+                  <span class="material-symbols-rounded">verified</span>
+                  <span>Check Apps Script Version</span>
+                </button>
               </div>
 
               <div id="connectionStatusAlert" style="margin-top: 20px; display:none;"></div>
+              <div id="scriptVersionAlertBox" style="margin-top: 16px; display:none;"></div>
             </div>
           </div>
 
@@ -1118,37 +1123,80 @@
         <div class="modal-body">
           <input type="hidden" id="invEditId">
 
-          <!-- Investor Selection (Uses Customer List) -->
-          <div class="form-group">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <label class="form-label" style="margin:0;">Select Investor (from Customer List) *</label>
-              <button type="button" onclick="openCustomerModal(); closeModal('investmentModal');" style="font-size:0.78rem; color:var(--primary); background:none; border:none; cursor:pointer; font-weight:600;">
-                + Add New Contact
-              </button>
-            </div>
-            <select id="invCustomerSelect" class="form-control" required>
+          <!-- Investor Mode Selector -->
+          <div style="display:flex; background:var(--bg-surface-elevated); padding:4px; border-radius:var(--radius-sm); margin-bottom:14px; border:1px solid var(--border);">
+            <button type="button" class="btn btn-secondary active flex-1" id="invModeExistingBtn" onclick="switchInvestorEntryMode('existing')" style="padding:6px 10px; font-size:0.82rem; font-weight:600;">
+              <span class="material-symbols-rounded" style="font-size:16px;">contacts</span>
+              <span>Choose Existing Contact</span>
+            </button>
+            <button type="button" class="btn btn-secondary flex-1" id="invModeNewBtn" onclick="switchInvestorEntryMode('new')" style="padding:6px 10px; font-size:0.82rem; font-weight:600;">
+              <span class="material-symbols-rounded" style="font-size:16px;">person_add</span>
+              <span>+ New Investor</span>
+            </button>
+          </div>
+
+          <!-- Section 1: Existing Customer Selection -->
+          <div id="invExistingCustomerSection" class="form-group">
+            <label class="form-label">Select Investor (from Contact List) *</label>
+            <select id="invCustomerSelect" class="form-control" onchange="handleInvestorCustomerChange(this.value)">
               <option value="">-- Choose an Investor from Customer List --</option>
             </select>
-            <small style="color:var(--text-subtle); display:block; margin-top:4px;">
-              Investors are managed through your centralized customer directory.
-            </small>
+            <!-- Live Contact Info Preview Box -->
+            <div id="invCustomerPreviewBox" style="display:none; background:rgba(212,175,55,0.08); border:1px solid rgba(212,175,55,0.3); border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px; font-size:0.82rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong id="invPreviewName" style="color:var(--gold); font-size:0.9rem;">—</strong>
+                <span id="invPreviewId" style="font-family:monospace; color:var(--text-muted);">—</span>
+              </div>
+              <div style="display:flex; gap:16px; margin-top:4px; color:var(--text-subtle);">
+                <span>📞 <span id="invPreviewPhone">—</span></span>
+                <span>✉️ <span id="invPreviewEmail">—</span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Direct New Investor Entry Fields -->
+          <div id="invNewCustomerSection" style="display:none; background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px; margin-bottom:16px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--primary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+              <span class="material-symbols-rounded" style="font-size:16px;">person_add</span>
+              <span>New Investor Details (Auto-saves to Customer Directory)</span>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="margin-bottom:8px;">
+                <label class="form-label">Investor Full Name *</label>
+                <input type="text" id="invNewName" class="form-control" placeholder="e.g. Ramesh Kumar">
+              </div>
+              <div class="form-group" style="margin-bottom:8px;">
+                <label class="form-label">Mobile Phone Number *</label>
+                <input type="tel" id="invNewPhone" class="form-control" placeholder="10-digit mobile number">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Email Address (Optional)</label>
+                <input type="email" id="invNewEmail" class="form-control" placeholder="investor@example.com">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">City / Address (Optional)</label>
+                <input type="text" id="invNewAddress" class="form-control" placeholder="e.g. Chennai">
+              </div>
+            </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Investment Amount (₹) *</label>
-              <input type="number" id="invAmountInput" class="form-control" required min="100" step="1" placeholder="e.g. 200000">
+              <input type="number" id="invAmountInput" class="form-control" required min="100" step="1" placeholder="e.g. 200000" oninput="calcInvestorReturnPreview()">
             </div>
             <div class="form-group">
               <label class="form-label">Repayment Interest % *</label>
-              <input type="number" id="invRateInput" class="form-control" required min="0" step="0.01" placeholder="e.g. 1.5 or 12">
+              <input type="number" id="invRateInput" class="form-control" required min="0" step="0.01" placeholder="e.g. 1.5 or 12" oninput="calcInvestorReturnPreview()">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Interest Period</label>
-              <select id="invRateTypeSelect" class="form-control">
+              <select id="invRateTypeSelect" class="form-control" onchange="calcInvestorReturnPreview()">
                 <option value="Monthly">Monthly (% per month)</option>
                 <option value="Yearly" selected>Yearly (% per annum)</option>
               </select>
@@ -1164,6 +1212,15 @@
                 <option value="Flexible Principal & Interest">Flexible Principal & Interest</option>
               </select>
             </div>
+          </div>
+
+          <!-- Dynamic Payout Preview Badge -->
+          <div id="invReturnPreviewBox" style="background:rgba(59,130,246,0.08); border:1px dashed var(--primary); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Estimated Return Payout</span>
+              <div id="invReturnPreviewText" style="font-size:1.05rem; font-weight:800; color:var(--primary);">₹0 per month</div>
+            </div>
+            <span class="badge badge-info" id="invReturnPreviewRate" style="font-size:0.75rem;">12% p.a.</span>
           </div>
 
           <div class="form-row">
@@ -1182,7 +1239,7 @@
 
           <div class="form-group">
             <label class="form-label">Remarks / Investor Bank Details</label>
-            <textarea id="invNotesInput" class="form-control" rows="2" placeholder="Bank A/C, IFSC, agreement notes or contact person"></textarea>
+            <textarea id="invNotesInput" class="form-control" rows="2" placeholder="Bank Name, A/C No, IFSC, or agreement remarks"></textarea>
           </div>
         </div>
 
@@ -1333,6 +1390,119 @@
           <span>New Repayment</span>
         </button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('investorHistoryModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9B. Investor Comprehensive Details Modal -->
+  <div class="modal-overlay" id="investorDetailsModal">
+    <div class="modal-sheet" style="max-width: 680px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <h3 class="modal-title" id="detInvestorName" style="margin:0;">Investor Name</h3>
+            <span id="detStatusBadge" class="badge badge-warning">Active</span>
+          </div>
+          <span class="card-subtitle" id="detSubtitle">INV-1001 • CUS-101</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('investorDetailsModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <!-- 4-Stat Metric Summary Grid -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:16px;">
+          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Capital Invested</div>
+            <div id="detCapitalAmount" style="font-size:1.15rem; font-weight:800; color:var(--text-main); margin-top:2px;">₹0</div>
+          </div>
+          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Total Repaid</div>
+            <div id="detTotalRepaid" style="font-size:1.15rem; font-weight:800; color:var(--success); margin-top:2px;">₹0</div>
+          </div>
+          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Outstanding Balance</div>
+            <div id="detOutstanding" style="font-size:1.25rem; font-weight:800; color:var(--danger); margin-top:2px;">₹0</div>
+          </div>
+          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Periodic Return</div>
+            <div id="detPeriodicReturn" style="font-size:1.15rem; font-weight:800; color:var(--primary); margin-top:2px;">₹0/mo</div>
+          </div>
+        </div>
+
+        <!-- Investor Contact & Profile Section -->
+        <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px; margin-bottom:14px;">
+          <div style="font-size:0.8rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-rounded" style="font-size:16px;">contact_phone</span>
+            <span>Investor Contact & Directory Profile</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.85rem;">
+            <div>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Phone Number</span>
+              <div id="detPhoneContainer" style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+                <strong id="detPhoneText">—</strong>
+                <a id="detCallLink" href="#" class="btn btn-secondary" style="padding:2px 8px; font-size:0.72rem; text-decoration:none;">Call</a>
+                <a id="detWaLink" href="#" target="_blank" class="btn btn-secondary" style="padding:2px 8px; font-size:0.72rem; text-decoration:none; color:#25D366;">WhatsApp</a>
+              </div>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Email Address</span>
+              <div id="detEmailText" style="margin-top:2px; font-weight:600;">—</div>
+            </div>
+            <div style="grid-column: span 2;">
+              <span style="color:var(--text-muted); font-size:0.75rem;">Address / Location</span>
+              <div id="detAddressText" style="margin-top:2px;">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Investment Terms & Banking Info -->
+        <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px; margin-bottom:14px;">
+          <div style="font-size:0.8rem; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-rounded" style="font-size:16px;">receipt_long</span>
+            <span>Contract Terms & Bank Details</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.85rem;">
+            <div>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Interest Rate</span>
+              <div id="detInterestRateText" style="font-weight:700; color:var(--text-main); margin-top:2px;">—</div>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Repayment Option</span>
+              <div id="detRepaymentOptionText" style="font-weight:600; margin-top:2px;">—</div>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Investment Start Date</span>
+              <div id="detStartDateText" style="font-weight:600; margin-top:2px;">—</div>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Active Duration</span>
+              <div id="detDurationText" style="font-weight:600; margin-top:2px;">—</div>
+            </div>
+            <div style="grid-column: span 2;">
+              <span style="color:var(--text-muted); font-size:0.75rem;">Remarks / Bank Account Details</span>
+              <div id="detNotesText" style="margin-top:2px; color:var(--text-main); background:rgba(0,0,0,0.15); padding:8px 12px; border-radius:var(--radius-sm); font-family:monospace; font-size:0.82rem;">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="flex-wrap:wrap; gap:8px;">
+        <button type="button" class="btn btn-primary" id="detRepayBtn" onclick="openInvestorRepayFromDetails()">
+          <span class="material-symbols-rounded">payments</span>
+          <span>Partial Repay</span>
+        </button>
+        <button type="button" class="btn btn-secondary" id="detHistoryBtn" onclick="openInvestorHistoryFromDetails()">
+          <span class="material-symbols-rounded">history</span>
+          <span>Ledger History</span>
+        </button>
+        <button type="button" class="btn btn-secondary" id="detEditBtn" onclick="openInvestorEditFromDetails()">
+          <span class="material-symbols-rounded">edit</span>
+          <span>Edit Terms</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('investorDetailsModal')">Close</button>
       </div>
     </div>
   </div>

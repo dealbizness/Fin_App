@@ -940,14 +940,24 @@ function renderCustomers() {
 
   table.innerHTML = '';
   cards.innerHTML = '';
-  if (countLabel) countLabel.textContent = `${state.customers.length} registered borrowers`;
+  if (countLabel) countLabel.textContent = `${state.customers.length} registered contacts (Borrowers & Investors)`;
 
   state.customers.forEach((c) => {
+    const isInvestor = (state.investments || []).some(
+      (inv) => inv.InvestorID === c.CustomerID || (inv.InvestorName && c.Name && inv.InvestorName.toLowerCase() === c.Name.toLowerCase())
+    );
+    const roleBadge = isInvestor
+      ? `<span class="badge badge-info" style="font-size:0.68rem; margin-left:6px;">Investor</span>`
+      : '';
+
     // Desktop Row
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><code>${c.CustomerID}</code></td>
-      <td><strong>${c.Name}</strong></td>
+      <td>
+        <strong>${c.Name}</strong>
+        ${roleBadge}
+      </td>
       <td>${c.Phone}</td>
       <td>${c.Address || '—'}</td>
       <td>${c.ActiveLoans || 0}</td>
@@ -972,7 +982,7 @@ function renderCustomers() {
     card.innerHTML = `
       <div class="mobile-card-header">
         <div>
-          <div class="mobile-card-title">${c.Name}</div>
+          <div class="mobile-card-title">${c.Name} ${roleBadge}</div>
           <div class="mobile-card-subtitle">${c.Phone} • ${c.CustomerID}</div>
         </div>
         <span class="badge badge-success">${c.Status}</span>
@@ -1107,6 +1117,9 @@ function renderLoans() {
 }
 
 // ── 3B. Investments & Investor Portfolio View ──
+// ── 3B. Investments & Investor Portfolio View ──
+let activeInvestorDetailId = null;
+
 function renderInvestments() {
   const table = document.getElementById('investmentsTableBody');
   const cards = document.getElementById('investmentsMobileCards');
@@ -1124,6 +1137,17 @@ function renderInvestments() {
   let activeInvestorsCount = 0;
 
   investments.forEach((inv) => {
+    // Auto-enrich investor contact details from customers directory if missing
+    const cust = (state.customers || []).find(
+      (c) => c.CustomerID === inv.InvestorID || (c.Name && inv.InvestorName && c.Name.toLowerCase() === inv.InvestorName.toLowerCase())
+    );
+    if (cust) {
+      if (!inv.InvestorPhone) inv.InvestorPhone = cust.Phone || '';
+      if (!inv.InvestorEmail) inv.InvestorEmail = cust.Email || '';
+      if (!inv.InvestorAddress) inv.InvestorAddress = cust.Address || '';
+      if (!inv.InvestorID) inv.InvestorID = cust.CustomerID;
+    }
+
     const amt = Number(inv.InvestmentAmount) || 0;
     const rep = Number(inv.TotalRepaid) || 0;
     const out = Number(inv.Outstanding) || 0;
@@ -1178,21 +1202,28 @@ function renderInvestments() {
       ? '<span class="badge badge-success">Settled</span>'
       : '<span class="badge badge-warning">Active</span>';
 
-    const rateText = `${inv.InterestRate}% ${inv.InterestType === 'Monthly' ? 'p.m.' : 'p.a.'}`;
+    const amt = Number(inv.InvestmentAmount) || 0;
+    const rate = Number(inv.InterestRate) || 0;
+    const isMonthly = (inv.InterestType || 'Yearly') === 'Monthly';
+    const periodicVal = isMonthly ? Math.round(amt * (rate / 100)) : Math.round((amt * (rate / 100)) / 12);
+    const rateText = `${inv.InterestRate}% ${isMonthly ? 'p.m.' : 'p.a.'}`;
 
     // Desktop Row
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>
         <strong>${inv.InvestorName}</strong>
-        <div style="font-size:0.75rem; color:var(--text-muted);">${inv.InvestorPhone || 'No Phone'} • <code>${inv.InvestorID || ''}</code></div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">
+          ${inv.InvestorPhone ? `📞 ${inv.InvestorPhone}` : 'No Phone'} • <code>${inv.InvestorID || 'INV'}</code>
+        </div>
       </td>
       <td><code>${inv.InvestmentID}</code></td>
       <td><strong>${formatCurrency(inv.InvestmentAmount)}</strong></td>
       <td>
         <span class="badge badge-info" style="font-size:0.75rem;">${rateText}</span>
+        <div style="font-size:0.72rem; color:var(--primary); font-weight:600; margin-top:2px;">~${formatCurrency(periodicVal)}/mo</div>
       </td>
-      <td><span style="font-size:0.85rem;">${inv.RepaymentOption || 'Monthly Interest'}</span></td>
+      <td><span style="font-size:0.82rem;">${inv.RepaymentOption || 'Monthly Interest'}</span></td>
       <td style="color:var(--success); font-weight:600;">${formatCurrency(inv.TotalRepaid)}</td>
       <td style="color:${isSettled ? 'var(--success)' : 'var(--danger)'}; font-weight:800; font-size:1rem;">
         ${formatCurrency(inv.Outstanding)}
@@ -1201,15 +1232,18 @@ function renderInvestments() {
       <td>${statusBadge}</td>
       <td>
         <div class="action-btn-group">
+          <button class="btn btn-secondary" style="padding:6px 9px; font-size:0.78rem;" onclick="viewInvestorDetails('${inv.InvestmentID}')" title="View Full Profile & Terms">
+            <span class="material-symbols-rounded" style="font-size:16px;">visibility</span>
+            <span>Details</span>
+          </button>
           ${!isSettled ? `
-            <button class="btn btn-primary" style="padding:6px 10px; font-size:0.78rem;" onclick="openInvestorRepayModal('${inv.InvestmentID}')" title="Partial Repayment Entry">
+            <button class="btn btn-primary" style="padding:6px 9px; font-size:0.78rem;" onclick="openInvestorRepayModal('${inv.InvestmentID}')" title="Partial Repayment Entry">
               <span class="material-symbols-rounded" style="font-size:16px;">payments</span>
               <span>Repay</span>
             </button>
           ` : ''}
-          <button class="btn btn-secondary" style="padding:6px 10px; font-size:0.78rem;" onclick="openInvestorHistoryModal('${inv.InvestmentID}')" title="Repayment History">
+          <button class="btn btn-secondary" style="padding:6px 9px; font-size:0.78rem;" onclick="openInvestorHistoryModal('${inv.InvestmentID}')" title="Repayment History">
             <span class="material-symbols-rounded" style="font-size:16px;">history</span>
-            <span>History</span>
           </button>
           <button class="btn btn-secondary" style="padding:6px 8px;" onclick="editInvestment('${inv.InvestmentID}')" title="Edit Investment">
             <span class="material-symbols-rounded" style="font-size:16px;">edit</span>
@@ -1246,7 +1280,7 @@ function renderInvestments() {
         </div>
         <div class="mobile-card-field">
           <span class="mobile-field-label">Interest Rate</span>
-          <span class="mobile-field-value">${rateText}</span>
+          <span class="mobile-field-value">${rateText} (${formatCurrency(periodicVal)}/mo)</span>
         </div>
         <div class="mobile-card-field">
           <span class="mobile-field-label">Repayment Option</span>
@@ -1262,15 +1296,18 @@ function renderInvestments() {
         </div>
       </div>
       <div class="mobile-card-footer" style="display:flex; flex-wrap:wrap; gap:8px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="viewInvestorDetails('${inv.InvestmentID}')">
+          <span class="material-symbols-rounded" style="font-size:16px;">visibility</span>
+          <span>View Details</span>
+        </button>
         ${!isSettled ? `
           <button class="btn btn-primary" style="flex:1;" onclick="openInvestorRepayModal('${inv.InvestmentID}')">
             <span class="material-symbols-rounded" style="font-size:16px;">payments</span>
-            <span>Partial Repay</span>
+            <span>Repay</span>
           </button>
         ` : ''}
-        <button class="btn btn-secondary" style="flex:1;" onclick="openInvestorHistoryModal('${inv.InvestmentID}')">
-          <span class="material-symbols-rounded" style="font-size:16px;">history</span>
-          <span>History</span>
+        <button class="btn btn-secondary" style="padding:8px 12px;" onclick="openInvestorHistoryModal('${inv.InvestmentID}')" title="Repayment History">
+          <span class="material-symbols-rounded" style="font-size:18px;">history</span>
         </button>
         <button class="btn btn-secondary" style="padding:8px 12px;" onclick="editInvestment('${inv.InvestmentID}')" title="Edit Investment">
           <span class="material-symbols-rounded" style="font-size:18px;">edit</span>
@@ -1282,6 +1319,175 @@ function renderInvestments() {
     `;
     cards.appendChild(card);
   });
+}
+
+// ── View Full Comprehensive Investor Details Modal ──
+function viewInvestorDetails(investmentId) {
+  const inv = (state.investments || []).find((i) => i.InvestmentID === investmentId);
+  if (!inv) {
+    showToast('Investment record not found', 'error');
+    return;
+  }
+
+  activeInvestorDetailId = investmentId;
+
+  // Look up customer details
+  const cust = (state.customers || []).find(
+    (c) => c.CustomerID === inv.InvestorID || (c.Name && inv.InvestorName && c.Name.toLowerCase() === inv.InvestorName.toLowerCase())
+  );
+
+  const phone = inv.InvestorPhone || (cust ? cust.Phone : '') || '';
+  const email = inv.InvestorEmail || (cust ? cust.Email : '') || '';
+  const address = inv.InvestorAddress || (cust ? cust.Address : '') || 'No registered address';
+
+  // Metrics
+  const amt = Number(inv.InvestmentAmount) || 0;
+  const repaid = Number(inv.TotalRepaid) || 0;
+  const out = Number(inv.Outstanding) || 0;
+  const rate = Number(inv.InterestRate) || 0;
+  const isMonthly = (inv.InterestType || 'Yearly') === 'Monthly';
+  const periodicVal = isMonthly ? Math.round(amt * (rate / 100)) : Math.round((amt * (rate / 100)) / 12);
+  const isSettled = inv.Status === 'Settled';
+
+  // Calculate active days
+  let durationStr = 'Active';
+  if (inv.StartDate) {
+    const sDate = parseDate(inv.StartDate);
+    if (sDate && !isNaN(sDate.getTime())) {
+      const diffDays = Math.max(0, Math.round((new Date() - sDate) / (1000 * 60 * 60 * 24)));
+      durationStr = `${diffDays} days (${inv.StartDate} to present)`;
+    }
+  }
+
+  // Populate DOM elements
+  document.getElementById('detInvestorName').textContent = inv.InvestorName;
+  document.getElementById('detSubtitle').textContent = `${inv.InvestmentID} • Customer ID: ${inv.InvestorID || (cust ? cust.CustomerID : 'CUS')}`;
+
+  const statusEl = document.getElementById('detStatusBadge');
+  if (statusEl) {
+    statusEl.className = `badge ${isSettled ? 'badge-success' : 'badge-warning'}`;
+    statusEl.textContent = isSettled ? 'Settled' : 'Active';
+  }
+
+  document.getElementById('detCapitalAmount').textContent = formatCurrency(amt);
+  document.getElementById('detTotalRepaid').textContent = formatCurrency(repaid);
+  document.getElementById('detOutstanding').textContent = formatCurrency(out);
+  document.getElementById('detPeriodicReturn').textContent = `${formatCurrency(periodicVal)}/mo`;
+
+  // Contact info
+  const phoneText = document.getElementById('detPhoneText');
+  const callLink = document.getElementById('detCallLink');
+  const waLink = document.getElementById('detWaLink');
+  if (phone) {
+    phoneText.textContent = phone;
+    callLink.href = `tel:${phone}`;
+    callLink.style.display = 'inline-block';
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    waLink.href = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(`Hello ${inv.InvestorName}, greeting from VR Finance regarding your investment ${inv.InvestmentID}.`)}`;
+    waLink.style.display = 'inline-block';
+  } else {
+    phoneText.textContent = 'No phone recorded';
+    callLink.style.display = 'none';
+    waLink.style.display = 'none';
+  }
+
+  document.getElementById('detEmailText').textContent = email || '—';
+  document.getElementById('detAddressText').textContent = address || '—';
+
+  // Contract Terms
+  document.getElementById('detInterestRateText').textContent = `${inv.InterestRate}% ${isMonthly ? 'per month' : 'per annum'}`;
+  document.getElementById('detRepaymentOptionText').textContent = inv.RepaymentOption || 'Monthly Interest (Principal at end)';
+  document.getElementById('detStartDateText').textContent = inv.StartDate || '—';
+  document.getElementById('detDurationText').textContent = durationStr;
+  document.getElementById('detNotesText').textContent = inv.Notes || 'No banking or agreement remarks recorded.';
+
+  // Detail Modal Action Buttons
+  const repayBtn = document.getElementById('detRepayBtn');
+  if (repayBtn) repayBtn.style.display = isSettled ? 'none' : 'inline-flex';
+
+  openModal('investorDetailsModal');
+}
+
+function openInvestorRepayFromDetails() {
+  closeModal('investorDetailsModal');
+  if (activeInvestorDetailId) {
+    openInvestorRepayModal(activeInvestorDetailId);
+  }
+}
+
+function openInvestorHistoryFromDetails() {
+  closeModal('investorDetailsModal');
+  if (activeInvestorDetailId) {
+    openInvestorHistoryModal(activeInvestorDetailId);
+  }
+}
+
+function openInvestorEditFromDetails() {
+  closeModal('investorDetailsModal');
+  if (activeInvestorDetailId) {
+    editInvestment(activeInvestorDetailId);
+  }
+}
+
+// ── Investor Mode & Dynamic Preview Controllers ──
+let currentInvestorEntryMode = 'existing';
+
+function switchInvestorEntryMode(mode) {
+  currentInvestorEntryMode = mode;
+  const existBtn = document.getElementById('invModeExistingBtn');
+  const newBtn = document.getElementById('invModeNewBtn');
+  const existSec = document.getElementById('invExistingCustomerSection');
+  const newSec = document.getElementById('invNewCustomerSection');
+
+  if (mode === 'new') {
+    if (newBtn) newBtn.classList.add('active');
+    if (existBtn) existBtn.classList.remove('active');
+    if (newSec) newSec.style.display = 'block';
+    if (existSec) existSec.style.display = 'none';
+  } else {
+    if (existBtn) existBtn.classList.add('active');
+    if (newBtn) newBtn.classList.remove('active');
+    if (existSec) existSec.style.display = 'block';
+    if (newSec) newSec.style.display = 'none';
+  }
+}
+
+function handleInvestorCustomerChange(customerId) {
+  const previewBox = document.getElementById('invCustomerPreviewBox');
+  if (!previewBox) return;
+
+  const cust = (state.customers || []).find((c) => c.CustomerID === customerId);
+  if (!cust) {
+    previewBox.style.display = 'none';
+    return;
+  }
+
+  previewBox.style.display = 'block';
+  document.getElementById('invPreviewName').textContent = cust.Name;
+  document.getElementById('invPreviewId').textContent = cust.CustomerID;
+  document.getElementById('invPreviewPhone').textContent = cust.Phone || 'No Phone';
+  document.getElementById('invPreviewEmail').textContent = cust.Email || 'No Email';
+}
+
+function calcInvestorReturnPreview() {
+  const amtInput = document.getElementById('invAmountInput');
+  const rateInput = document.getElementById('invRateInput');
+  const rateTypeSelect = document.getElementById('invRateTypeSelect');
+  const textEl = document.getElementById('invReturnPreviewText');
+  const rateEl = document.getElementById('invReturnPreviewRate');
+  if (!amtInput || !rateInput || !textEl) return;
+
+  const amt = Number(amtInput.value) || 0;
+  const rate = Number(rateInput.value) || 0;
+  const isMonthly = (rateTypeSelect ? rateTypeSelect.value : 'Yearly') === 'Monthly';
+
+  const periodicVal = isMonthly ? Math.round(amt * (rate / 100)) : Math.round((amt * (rate / 100)) / 12);
+  const annualVal = isMonthly ? Math.round(periodicVal * 12) : Math.round(amt * (rate / 100));
+
+  textEl.textContent = `${formatCurrency(periodicVal)} per month (~${formatCurrency(annualVal)} / year)`;
+  if (rateEl) {
+    rateEl.textContent = `${rate}% ${isMonthly ? 'p.m.' : 'p.a.'}`;
+  }
 }
 
 function handleInvestmentSearch(query) {
@@ -2394,6 +2600,7 @@ function showPaymentReceipt(pay, emi, loan) {
 }
 
 // ═══════════════════ INVESTOR OPERATIONS & REPAYMENTS ═══════════════════
+// ═══════════════════ INVESTOR OPERATIONS & REPAYMENTS ═══════════════════
 function openNewInvestmentModal() {
   const form = document.getElementById('investmentForm');
   if (form) form.reset();
@@ -2408,7 +2615,13 @@ function openNewInvestmentModal() {
   const dateInput = document.getElementById('invStartDateInput');
   if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
 
+  switchInvestorEntryMode('existing');
   updateCustomerDropdowns();
+
+  const previewBox = document.getElementById('invCustomerPreviewBox');
+  if (previewBox) previewBox.style.display = 'none';
+
+  calcInvestorReturnPreview();
   openModal('investmentModal');
 }
 
@@ -2420,12 +2633,16 @@ function editInvestment(investmentId) {
   }
 
   updateCustomerDropdowns();
+  switchInvestorEntryMode('existing');
 
   const editId = document.getElementById('invEditId');
   if (editId) editId.value = inv.InvestmentID;
 
   const select = document.getElementById('invCustomerSelect');
-  if (select) select.value = inv.InvestorID;
+  if (select) {
+    select.value = inv.InvestorID;
+    handleInvestorCustomerChange(inv.InvestorID);
+  }
 
   const amtInput = document.getElementById('invAmountInput');
   if (amtInput) amtInput.value = inv.InvestmentAmount;
@@ -2442,7 +2659,9 @@ function editInvestment(investmentId) {
   const startDateInput = document.getElementById('invStartDateInput');
   if (startDateInput) {
     const d = parseDate(inv.StartDate);
-    startDateInput.value = d.toISOString().split('T')[0];
+    if (d && !isNaN(d.getTime())) {
+      startDateInput.value = d.toISOString().split('T')[0];
+    }
   }
 
   const statusSelect = document.getElementById('invStatusSelect');
@@ -2452,24 +2671,17 @@ function editInvestment(investmentId) {
   if (notesInput) notesInput.value = inv.Notes || '';
 
   const titleEl = document.getElementById('investmentModalTitle');
-  if (titleEl) titleEl.textContent = 'Edit Investment Details';
+  if (titleEl) titleEl.textContent = `Edit Investment — ${inv.InvestmentID}`;
   const btnText = document.getElementById('investmentSubmitBtnText');
   if (btnText) btnText.textContent = 'Update Investment';
 
+  calcInvestorReturnPreview();
   openModal('investmentModal');
 }
 
-function saveInvestment(e) {
+async function saveInvestment(e) {
   e.preventDefault();
-  const editId = document.getElementById('invEditId') ? document.getElementById('invEditId').value : '';
-  const customerId = document.getElementById('invCustomerSelect').value;
-  const customer = state.customers.find((c) => c.CustomerID === customerId);
-
-  if (!customer) {
-    showToast('Please select a valid investor from the customer list', 'error');
-    return;
-  }
-
+  const editId = document.getElementById('invEditId') ? document.getElementById('invEditId').value.trim() : '';
   const amount = Number(document.getElementById('invAmountInput').value) || 0;
   const rate = Number(document.getElementById('invRateInput').value) || 0;
   const rateType = document.getElementById('invRateTypeSelect').value;
@@ -2483,6 +2695,74 @@ function saveInvestment(e) {
     return;
   }
 
+  let investorId = '';
+  let investorName = '';
+  let investorPhone = '';
+  let investorEmail = '';
+  let investorAddress = '';
+
+  if (currentInvestorEntryMode === 'new' && !editId) {
+    // Direct new investor entry
+    const newName = (document.getElementById('invNewName') ? document.getElementById('invNewName').value : '').trim();
+    const newPhone = (document.getElementById('invNewPhone') ? document.getElementById('invNewPhone').value : '').trim();
+    const newEmail = (document.getElementById('invNewEmail') ? document.getElementById('invNewEmail').value : '').trim();
+    const newAddress = (document.getElementById('invNewAddress') ? document.getElementById('invNewAddress').value : '').trim();
+
+    if (!newName) {
+      showToast('Please enter investor name', 'warning');
+      return;
+    }
+    if (!newPhone) {
+      showToast('Please enter investor phone number', 'warning');
+      return;
+    }
+
+    // Auto-create customer in state and sync
+    const localCustId = 'CUS-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    investorId = localCustId;
+    investorName = newName;
+    investorPhone = newPhone;
+    investorEmail = newEmail;
+    investorAddress = newAddress;
+
+    const newCust = {
+      CustomerID: localCustId,
+      Name: newName,
+      Phone: newPhone,
+      Email: newEmail,
+      Address: newAddress,
+      IDProof: 'Aadhaar',
+      IDNumber: '',
+      JoinDate: formatDate(new Date()),
+      Status: 'Active',
+      Notes: 'Investor',
+      ActiveLoans: 0,
+      TotalOutstanding: 0
+    };
+    state.customers.unshift(newCust);
+    updateCustomerDropdowns();
+
+    // Async push customer to sheet
+    if (state.scriptUrl) {
+      callSheetApi('addCustomer', newCust).catch(err => console.warn('Customer sheet sync note:', err));
+    }
+  } else {
+    // Existing customer selection
+    const customerId = document.getElementById('invCustomerSelect').value;
+    const customer = state.customers.find((c) => c.CustomerID === customerId);
+
+    if (!customer) {
+      showToast('Please select a valid investor from the customer list or choose "+ New Investor"', 'error');
+      return;
+    }
+
+    investorId = customer.CustomerID;
+    investorName = customer.Name;
+    investorPhone = customer.Phone || '';
+    investorEmail = customer.Email || '';
+    investorAddress = customer.Address || '';
+  }
+
   const todayStr = formatDate(new Date());
 
   if (editId) {
@@ -2493,9 +2773,11 @@ function saveInvestment(e) {
       return;
     }
 
-    inv.InvestorID = customer.CustomerID;
-    inv.InvestorName = customer.Name;
-    inv.InvestorPhone = customer.Phone;
+    inv.InvestorID = investorId;
+    inv.InvestorName = investorName;
+    inv.InvestorPhone = investorPhone;
+    inv.InvestorEmail = investorEmail;
+    inv.InvestorAddress = investorAddress;
     inv.InvestmentAmount = amount;
     inv.InterestRate = rate;
     inv.InterestType = rateType;
@@ -2514,19 +2796,61 @@ function saveInvestment(e) {
     saveDataLocally();
     refreshUI();
     closeModal('investmentModal');
-    showToast('Investment updated successfully!', 'success');
+    showToast(`Investment ${editId} updated locally!`, 'success');
+
+    // Dual-cased payload for maximum compatibility
+    const payload = {
+      investmentId: editId,
+      InvestmentID: editId,
+      investorId: investorId,
+      InvestorID: investorId,
+      investorName: investorName,
+      InvestorName: investorName,
+      investorPhone: investorPhone,
+      InvestorPhone: investorPhone,
+      amount: amount,
+      InvestmentAmount: amount,
+      rate: rate,
+      InterestRate: rate,
+      rateType: rateType,
+      InterestType: rateType,
+      repaymentOption: repaymentOption,
+      RepaymentOption: repaymentOption,
+      totalRepaid: inv.TotalRepaid,
+      TotalRepaid: inv.TotalRepaid,
+      outstanding: inv.Outstanding,
+      Outstanding: inv.Outstanding,
+      startDate: inv.StartDate,
+      StartDate: inv.StartDate,
+      status: inv.Status,
+      Status: inv.Status,
+      notes: notes,
+      Notes: notes
+    };
 
     if (state.scriptUrl) {
-      callSheetApi('updateInvestment', inv);
+      showToast('Syncing changes to Google Sheet...', 'info');
+      try {
+        const res = await callSheetApi('updateInvestment', payload);
+        if (res && res.success) {
+          showToast(`Investment ${editId} updated in Google Sheet!`, 'success');
+        } else if (res && !res.success) {
+          showToast(`Sheet update note: ${res.message || 'Check connection'}`, 'warning');
+        }
+      } catch (err) {
+        console.warn('Update investment sync error:', err);
+      }
     }
   } else {
     // ── Create New Investment ──
     const invId = 'INV-' + (1000 + (state.investments ? state.investments.length + 1 : 1));
     const newInv = {
       InvestmentID: invId,
-      InvestorID: customer.CustomerID,
-      InvestorName: customer.Name,
-      InvestorPhone: customer.Phone,
+      InvestorID: investorId,
+      InvestorName: investorName,
+      InvestorPhone: investorPhone,
+      InvestorEmail: investorEmail,
+      InvestorAddress: investorAddress,
       InvestmentAmount: amount,
       InterestRate: rate,
       InterestType: rateType,
@@ -2545,19 +2869,69 @@ function saveInvestment(e) {
     saveDataLocally();
     refreshUI();
     closeModal('investmentModal');
-    showToast(`Investment ${invId} recorded for ${customer.Name}!`, 'success');
+    showToast(`Investment ${invId} recorded for ${investorName}!`, 'success');
+
+    // Dual-cased payload for sheet backend
+    const payload = {
+      investmentId: invId,
+      InvestmentID: invId,
+      investorId: investorId,
+      InvestorID: investorId,
+      investorName: investorName,
+      InvestorName: investorName,
+      investorPhone: investorPhone,
+      InvestorPhone: investorPhone,
+      investorEmail: investorEmail,
+      InvestorEmail: investorEmail,
+      investorAddress: investorAddress,
+      InvestorAddress: investorAddress,
+      amount: amount,
+      InvestmentAmount: amount,
+      rate: rate,
+      InterestRate: rate,
+      rateType: rateType,
+      InterestType: rateType,
+      repaymentOption: repaymentOption,
+      RepaymentOption: repaymentOption,
+      totalRepaid: 0,
+      TotalRepaid: 0,
+      outstanding: amount,
+      Outstanding: amount,
+      startDate: newInv.StartDate,
+      StartDate: newInv.StartDate,
+      status: status,
+      Status: status,
+      notes: notes,
+      Notes: notes,
+      createdDate: todayStr,
+      CreatedDate: todayStr
+    };
 
     if (state.scriptUrl) {
-      callSheetApi('addInvestment', newInv);
+      showToast('Recording investment in Google Sheet...', 'info');
+      try {
+        const res = await callSheetApi('addInvestment', payload);
+        if (res && res.success) {
+          showToast(`Investment ${invId} saved to Google Sheet!`, 'success');
+        } else if (res && !res.success) {
+          if (String(res.message || '').includes('Unknown POST action')) {
+            showToast('Saved in app! Please update Google Apps Script deployment (Settings > Check Version)', 'warning');
+          } else {
+            showToast(`Sheet note: ${res.message || 'Check connection'}`, 'warning');
+          }
+        }
+      } catch (err) {
+        console.warn('Add investment sheet sync error:', err);
+      }
     }
   }
 }
 
-function deleteInvestment(investmentId) {
+async function deleteInvestment(investmentId) {
   const inv = (state.investments || []).find((i) => i.InvestmentID === investmentId);
   if (!inv) return;
 
-  const msg = `Are you sure you want to delete investment ${inv.InvestmentID} for ${inv.InvestorName}? All recorded repayments will also be removed.`;
+  const msg = `Are you sure you want to delete investment ${inv.InvestmentID} for "${inv.InvestorName}"? All recorded repayments will also be removed.`;
   if (!confirm(msg)) return;
 
   state.investments = state.investments.filter((i) => i.InvestmentID !== investmentId);
@@ -2570,7 +2944,17 @@ function deleteInvestment(investmentId) {
   showToast(`Investment ${investmentId} deleted.`, 'info');
 
   if (state.scriptUrl) {
-    callSheetApi('deleteInvestment', { investmentId: investmentId });
+    try {
+      const res = await callSheetApi('deleteInvestment', {
+        investmentId: investmentId,
+        InvestmentID: investmentId
+      });
+      if (res && res.success) {
+        showToast(`Investment ${investmentId} removed from Google Sheet.`, 'success');
+      }
+    } catch (err) {
+      console.warn('Delete investment sheet sync error:', err);
+    }
   }
 }
 
@@ -2627,7 +3011,7 @@ function calcRepaymentPreview() {
   }
 }
 
-function saveInvestorRepayment(e) {
+async function saveInvestorRepayment(e) {
   e.preventDefault();
   const invId = document.getElementById('repayInvestmentId').value;
   const inv = (state.investments || []).find((i) => i.InvestmentID === invId);
@@ -2688,7 +3072,17 @@ function saveInvestorRepayment(e) {
   showToast(`Repayment of ${formatCurrency(amt)} recorded for ${inv.InvestorName}!`, 'success');
 
   if (state.scriptUrl) {
-    callSheetApi('recordInvestmentRepayment', { repayment: repRecord, investment: inv });
+    try {
+      showToast('Syncing repayment to Google Sheet...', 'info');
+      const res = await callSheetApi('recordInvestmentRepayment', { repayment: repRecord, investment: inv });
+      if (res && res.success) {
+        showToast(`Repayment recorded in Google Sheet!`, 'success');
+      } else if (res && !res.success) {
+        showToast(`Sheet update note: ${res.message || 'Check connection'}`, 'warning');
+      }
+    } catch (err) {
+      console.warn('Investor repayment sheet sync error:', err);
+    }
   }
 
   // Show printable Investor Payment Receipt
@@ -2882,6 +3276,20 @@ async function syncWithGoogleSheet(silent = false) {
       if (data.investmentRepayments && data.investmentRepayments.length > 0) {
         state.investmentRepayments = data.investmentRepayments;
       }
+
+      // Auto-enrich investor contact details from customers
+      (state.investments || []).forEach((inv) => {
+        const cust = (state.customers || []).find(
+          (c) => c.CustomerID === inv.InvestorID || (c.Name && inv.InvestorName && c.Name.toLowerCase() === inv.InvestorName.toLowerCase())
+        );
+        if (cust) {
+          if (!inv.InvestorPhone) inv.InvestorPhone = cust.Phone || '';
+          if (!inv.InvestorEmail) inv.InvestorEmail = cust.Email || '';
+          if (!inv.InvestorAddress) inv.InvestorAddress = cust.Address || '';
+          if (!inv.InvestorID) inv.InvestorID = cust.CustomerID;
+        }
+      });
+
       saveDataLocally();
       refreshUI();
       updateSyncStatus('online', 'Sheet Synced');
@@ -2890,6 +3298,80 @@ async function syncWithGoogleSheet(silent = false) {
   } catch (e) {
     console.log('Sync note:', e);
     updateSyncStatus('offline', 'Offline Cache');
+  }
+}
+
+async function verifyAppsScriptVersion() {
+  const alertEl = document.getElementById('scriptVersionAlertBox');
+  if (!alertEl) return;
+  if (!state.scriptUrl) {
+    showToast('Please enter your Google Apps Script URL first', 'error');
+    return;
+  }
+
+  alertEl.style.display = 'block';
+  alertEl.innerHTML = `
+    <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:16px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="material-symbols-rounded" style="color:var(--gold);">sync</span>
+        <strong>Probing Google Apps Script Endpoint...</strong>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`${state.scriptUrl}?action=getDashboardData`);
+    const data = await res.json();
+    const pingRes = await fetch(`${state.scriptUrl}?action=ping`).then(r => r.json()).catch(() => null);
+
+    const hasInvestments = Boolean(data && data.investments !== undefined);
+    const isNewName = pingRes && String(pingRes.message || '').includes('VR Finance');
+
+    if (hasInvestments && isNewName) {
+      alertEl.innerHTML = `
+        <div style="background:rgba(16,185,129,0.12); border:1px solid var(--success); border-radius:var(--radius-md); padding:16px;">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--success); font-weight:800; font-size:1.05rem;">
+            <span class="material-symbols-rounded">check_circle</span>
+            <span>Google Apps Script Backend is Fully Up to Date!</span>
+          </div>
+          <p style="margin:8px 0 0; font-size:0.85rem; color:var(--text-main);">
+            Your live endpoint is running the VR Finance backend with active <strong>Investments</strong> and <strong>Investment Repayments</strong> database support. Everything saved in the app will instantly record to your spreadsheet!
+          </p>
+        </div>
+      `;
+      showToast('Google Apps Script is fully updated & verified!', 'success');
+    } else {
+      alertEl.innerHTML = `
+        <div style="background:rgba(239,68,68,0.1); border:1px solid var(--danger); border-radius:var(--radius-md); padding:16px;">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--danger); font-weight:800; font-size:1.05rem;">
+            <span class="material-symbols-rounded">warning</span>
+            <span>Apps Script Needs a 1-Minute Version Update</span>
+          </div>
+          <p style="margin:8px 0 10px; font-size:0.85rem; color:var(--text-main);">
+            The spreadsheet is currently running an older deployment (<strong>${pingRes ? pingRes.message : 'Legacy Version'}</strong>) without the Investments API. To enable spreadsheet saving:
+          </p>
+          <ol style="margin:0; padding-left:20px; font-size:0.85rem; line-height:1.6; color:var(--text-main);">
+            <li>Open your Google Spreadsheet → Click <strong>Extensions</strong> → <strong>Apps Script</strong>.</li>
+            <li>Copy all code from <code>FinanceApp/Code.gs</code> and paste it into the script editor.</li>
+            <li>Click <strong>Deploy</strong> (top right blue button) → <strong>Manage deployments</strong>.</li>
+            <li>Click the <strong>Pencil icon (Edit)</strong> next to your active deployment.</li>
+            <li>Under <strong>Version</strong>, select <strong>"New version"</strong> and click <strong>Deploy</strong>.</li>
+          </ol>
+          <div style="margin-top:12px;">
+            <button class="btn btn-primary" onclick="verifyAppsScriptVersion()" style="padding:6px 14px; font-size:0.82rem;">
+              <span>Re-check After Deploying</span>
+            </button>
+          </div>
+        </div>
+      `;
+      showToast('Older Apps Script deployment detected. Follow the 3 steps to update.', 'warning');
+    }
+  } catch (err) {
+    alertEl.innerHTML = `
+      <div style="background:rgba(239,68,68,0.1); border:1px solid var(--danger); border-radius:var(--radius-md); padding:16px;">
+        <strong>Could not connect to Apps Script:</strong> ${err.message}. Please check your URL.
+      </div>
+    `;
   }
 }
 

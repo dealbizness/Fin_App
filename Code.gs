@@ -1049,97 +1049,198 @@ function debugCustomers() {
 
 // ─────────────────── INVESTMENTS & REPAYMENTS BACKEND ───────────────────
 function getAllInvestments() {
-  return sheetToObjects_(SHEET_NAMES.INVESTMENTS);
+  let investments = [];
+  try {
+    investments = sheetToObjects_(SHEET_NAMES.INVESTMENTS);
+  } catch (e) {
+    return [];
+  }
+  try {
+    const customers = sheetToObjects_(SHEET_NAMES.CUSTOMERS);
+    investments.forEach(inv => {
+      const cust = customers.find(c => String(c.CustomerID).trim() === String(inv.InvestorID).trim());
+      if (cust) {
+        inv.InvestorPhone = cust.Phone || '';
+        inv.InvestorEmail = cust.Email || '';
+        inv.InvestorAddress = cust.Address || '';
+      }
+    });
+  } catch (x) {}
+  return safe_(investments);
 }
 
 function addInvestment(data) {
-  const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
-  const invId = data.InvestmentID || ('INV-' + (1000 + Math.max(sheet.getLastRow(), 1)));
-  const row = [
-    invId,
-    data.InvestorID || '',
-    data.InvestorName || '',
-    Number(data.InvestmentAmount) || 0,
-    Number(data.InterestRate) || 0,
-    data.InterestType || 'Yearly',
-    data.RepaymentOption || 'Monthly Interest (Principal at end)',
-    Number(data.TotalRepaid) || 0,
-    Number(data.Outstanding) !== undefined ? Number(data.Outstanding) : (Number(data.InvestmentAmount) || 0),
-    data.StartDate || '',
-    data.Status || 'Active',
-    data.Notes || '',
-    data.CreatedDate || new Date().toISOString().split('T')[0]
-  ];
-  sheet.appendRow(row);
-  return { success: true, investmentId: invId };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+    const invId = data.InvestmentID || data.investmentId || ('INV-' + (1000 + Math.max(sheet.getLastRow(), 1)));
+    let investorId = data.InvestorID || data.investorId || '';
+    const investorName = String(data.InvestorName || data.investorName || data.name || '').trim();
+    const investorPhone = String(data.InvestorPhone || data.investorPhone || data.phone || '').trim();
+    const amount = Number(data.InvestmentAmount !== undefined ? data.InvestmentAmount : data.amount) || 0;
+    const rate = Number(data.InterestRate !== undefined ? data.InterestRate : data.rate) || 0;
+    const rateType = data.InterestType || data.rateType || 'Yearly';
+    const repaymentOption = data.RepaymentOption || data.repaymentOption || 'Monthly Interest (Principal at end)';
+    const totalRepaid = Number(data.TotalRepaid !== undefined ? data.TotalRepaid : data.totalRepaid) || 0;
+    const outstanding = Number(data.Outstanding !== undefined ? data.Outstanding : (data.outstanding !== undefined ? data.outstanding : amount));
+    const startDate = data.StartDate || data.startDate || formatDateIN_(new Date());
+    const status = data.Status || data.status || 'Active';
+    const notes = String(data.Notes || data.notes || '').trim();
+    const createdDate = data.CreatedDate || data.createdDate || formatDateIN_(new Date());
+
+    // Auto-record customer into Customers sheet if not existing
+    try {
+      const custSheet = getSheet_(SHEET_NAMES.CUSTOMERS);
+      const custRows = custSheet.getDataRange().getValues();
+      let found = false;
+      for (let i = 1; i < custRows.length; i++) {
+        if ((investorId && String(custRows[i][0]).trim() === String(investorId).trim()) ||
+            (investorName && String(custRows[i][1]).trim().toLowerCase() === investorName.toLowerCase())) {
+          found = true;
+          if (!investorId) investorId = String(custRows[i][0]).trim();
+          break;
+        }
+      }
+      if (!found && investorName) {
+        if (!investorId) investorId = generateId_('CUS');
+        custSheet.appendRow([
+          investorId,
+          investorName,
+          investorPhone,
+          data.InvestorEmail || data.investorEmail || data.email || '',
+          data.InvestorAddress || data.investorAddress || data.address || '',
+          'Aadhaar',
+          '',
+          formatDateIN_(new Date()),
+          'Active',
+          'Registered as Investor'
+        ]);
+        SpreadsheetApp.flush();
+      }
+    } catch (custErr) {
+      Logger.log('Customer auto-link notice: ' + custErr.message);
+    }
+
+    const row = [
+      invId, investorId, investorName, amount, rate, rateType, repaymentOption,
+      totalRepaid, outstanding, startDate, status, notes, createdDate
+    ];
+    sheet.appendRow(row);
+    SpreadsheetApp.flush();
+    return {
+      success: true,
+      investmentId: invId,
+      investorId: investorId,
+      message: 'Investment "' + invId + '" recorded successfully!'
+    };
+  } catch (e) {
+    return { success: false, message: 'Error: ' + e.message };
+  } finally {
+    try { lock.releaseLock(); } catch (x) {}
+  }
 }
 
 function updateInvestment(data) {
-  const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(data.InvestmentID)) {
-      if (data.InvestorID !== undefined) rows[i][1] = data.InvestorID;
-      if (data.InvestorName !== undefined) rows[i][2] = data.InvestorName;
-      if (data.InvestmentAmount !== undefined) rows[i][3] = Number(data.InvestmentAmount);
-      if (data.InterestRate !== undefined) rows[i][4] = Number(data.InterestRate);
-      if (data.InterestType !== undefined) rows[i][5] = data.InterestType;
-      if (data.RepaymentOption !== undefined) rows[i][6] = data.RepaymentOption;
-      if (data.TotalRepaid !== undefined) rows[i][7] = Number(data.TotalRepaid);
-      if (data.Outstanding !== undefined) rows[i][8] = Number(data.Outstanding);
-      if (data.StartDate !== undefined) rows[i][9] = data.StartDate;
-      if (data.Status !== undefined) rows[i][10] = data.Status;
-      if (data.Notes !== undefined) rows[i][11] = data.Notes;
-      sheet.getRange(i + 1, 1, 1, rows[i].length).setValues([rows[i]]);
-      return { success: true, message: 'Investment updated' };
+  try {
+    const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+    const rows = sheet.getDataRange().getValues();
+    const targetId = String(data.InvestmentID || data.investmentId || '').trim();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === targetId) {
+        const row = i + 1;
+        if (data.InvestorID || data.investorId) sheet.getRange(row, 2).setValue(data.InvestorID || data.investorId);
+        if (data.InvestorName || data.investorName) sheet.getRange(row, 3).setValue(data.InvestorName || data.investorName);
+        if (data.InvestmentAmount !== undefined || data.amount !== undefined) sheet.getRange(row, 4).setValue(Number(data.InvestmentAmount !== undefined ? data.InvestmentAmount : data.amount));
+        if (data.InterestRate !== undefined || data.rate !== undefined) sheet.getRange(row, 5).setValue(Number(data.InterestRate !== undefined ? data.InterestRate : data.rate));
+        if (data.InterestType || data.rateType) sheet.getRange(row, 6).setValue(data.InterestType || data.rateType);
+        if (data.RepaymentOption || data.repaymentOption) sheet.getRange(row, 7).setValue(data.RepaymentOption || data.repaymentOption);
+        if (data.TotalRepaid !== undefined || data.totalRepaid !== undefined) sheet.getRange(row, 8).setValue(Number(data.TotalRepaid !== undefined ? data.TotalRepaid : data.totalRepaid));
+        if (data.Outstanding !== undefined || data.outstanding !== undefined) sheet.getRange(row, 9).setValue(Number(data.Outstanding !== undefined ? data.Outstanding : data.outstanding));
+        if (data.StartDate || data.startDate) sheet.getRange(row, 10).setValue(data.StartDate || data.startDate);
+        if (data.Status || data.status) sheet.getRange(row, 11).setValue(data.Status || data.status);
+        if (data.Notes !== undefined || data.notes !== undefined) sheet.getRange(row, 12).setValue(data.Notes !== undefined ? data.Notes : data.notes);
+        SpreadsheetApp.flush();
+        return { success: true, message: 'Investment updated!' };
+      }
     }
+    return { success: false, message: 'Investment not found!' };
+  } catch (e) {
+    return { success: false, message: 'Error: ' + e.message };
   }
-  return { success: false, message: 'Investment not found' };
 }
 
 function deleteInvestment(invId) {
-  const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(invId)) {
-      sheet.deleteRow(i + 1);
-      break;
+  try {
+    const id = String(invId || '').trim();
+    const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === id) {
+        sheet.deleteRow(i + 1);
+        break;
+      }
     }
-  }
-  // Delete associated repayments
-  const repSheet = getSheet_(SHEET_NAMES.INVESTMENT_REPAYMENTS);
-  const repRows = repSheet.getDataRange().getValues();
-  for (let i = repRows.length - 1; i >= 1; i--) {
-    if (String(repRows[i][1]) === String(invId)) {
-      repSheet.deleteRow(i + 1);
+    // Delete associated repayments
+    const repSheet = getSheet_(SHEET_NAMES.INVESTMENT_REPAYMENTS);
+    const repRows = repSheet.getDataRange().getValues();
+    for (let i = repRows.length - 1; i >= 1; i--) {
+      if (String(repRows[i][1]).trim() === id) {
+        repSheet.deleteRow(i + 1);
+      }
     }
+    SpreadsheetApp.flush();
+    return { success: true, message: 'Investment and repayments deleted' };
+  } catch (e) {
+    return { success: false, message: 'Error: ' + e.message };
   }
-  return { success: true, message: 'Investment and repayments deleted' };
 }
 
 function recordInvestmentRepayment(data) {
-  const rep = data.repayment || data;
-  const inv = data.investment;
-  const repSheet = getSheet_(SHEET_NAMES.INVESTMENT_REPAYMENTS);
-  const repId = rep.RepaymentID || ('IRP-' + Math.random().toString(36).substring(2, 7).toUpperCase());
-  const row = [
-    repId,
-    rep.InvestmentID || '',
-    rep.InvestorID || '',
-    rep.InvestorName || '',
-    Number(rep.Amount) || 0,
-    rep.PaymentDate || '',
-    rep.RepaymentType || 'Principal Reduction',
-    rep.PaymentMode || 'UPI',
-    rep.PaidBy || 'Manager',
-    rep.Remarks || '',
-    rep.Timestamp || new Date().toLocaleString()
-  ];
-  repSheet.appendRow(row);
+  try {
+    const rep = data.repayment || data;
+    const repSheet = getSheet_(SHEET_NAMES.INVESTMENT_REPAYMENTS);
+    const repId = rep.RepaymentID || ('IRP-' + Math.random().toString(36).substring(2, 7).toUpperCase());
+    const invId = rep.InvestmentID || '';
+    const amount = Number(rep.Amount) || 0;
+    const row = [
+      repId,
+      invId,
+      rep.InvestorID || '',
+      rep.InvestorName || '',
+      amount,
+      rep.PaymentDate || formatDateIN_(new Date()),
+      rep.RepaymentType || 'Principal Reduction',
+      rep.PaymentMode || 'UPI',
+      rep.PaidBy || 'Manager',
+      rep.Remarks || '',
+      rep.Timestamp || formatDateIN_(new Date())
+    ];
+    repSheet.appendRow(row);
 
-  // Update investment record if provided
-  if (inv) {
-    updateInvestment(inv);
+    // Update investment balance in Investments sheet
+    const invSheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+    const rows = invSheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === String(invId).trim()) {
+        const curRepaid = Number(rows[i][7]) || 0;
+        const curOut = Number(rows[i][8]) || 0;
+        const newRepaid = curRepaid + amount;
+        let newOut = curOut;
+        if (rep.RepaymentType === 'Principal Reduction' || rep.RepaymentType === 'Lumpsum') {
+          newOut = Math.max(0, curOut - amount);
+        }
+        invSheet.getRange(i + 1, 8).setValue(newRepaid);
+        invSheet.getRange(i + 1, 9).setValue(newOut);
+        if (newOut === 0) {
+          invSheet.getRange(i + 1, 11).setValue('Settled');
+        }
+        break;
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true, repaymentId: repId, message: 'Repayment recorded successfully!' };
+  } catch (e) {
+    return { success: false, message: 'Error: ' + e.message };
   }
-  return { success: true, repaymentId: repId };
 }
