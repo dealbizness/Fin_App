@@ -33,12 +33,12 @@
     <!-- ──── Sidebar (Desktop & Tablet Drawer) ──── -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div class="app-brand-icon">
-          <span class="material-symbols-rounded">account_balance</span>
+        <div class="app-brand-logo-wrap">
+          <img src="logo.png" alt="VR Finance Logo" class="brand-logo-img">
         </div>
         <div class="app-brand-title">
           <span class="brand-name">VR Finance</span>
-          <span class="brand-badge">Capital & Loans</span>
+          <span class="brand-badge">Your Goals • Our Priority</span>
         </div>
       </div>
 
@@ -69,7 +69,7 @@
         </button>
         <button class="nav-link" data-view="settings" onclick="switchView('settings')">
           <span class="material-symbols-rounded">cloud_sync</span>
-          <span>Cloud & Sheets</span>
+          <span>Cloud & Security</span>
         </button>
       </nav>
 
@@ -78,9 +78,14 @@
           <span class="sync-dot" id="syncStatusDot"></span>
           <span id="syncStatusText">Sheet Ready</span>
         </div>
-        <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
-          <span class="material-symbols-rounded" id="themeIcon">light_mode</span>
-        </button>
+        <div style="display: flex; gap: 4px;">
+          <button class="btn-icon" onclick="lockAppNow()" title="Lock Application Screen">
+            <span class="material-symbols-rounded">lock</span>
+          </button>
+          <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+            <span class="material-symbols-rounded" id="themeIcon">light_mode</span>
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -93,6 +98,7 @@
           <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()">
             <span class="material-symbols-rounded">menu</span>
           </button>
+          <img src="logo.png" alt="VR Finance" class="topbar-logo-thumb">
           <h1 class="page-title" id="pageTitleHeading">Dashboard</h1>
         </div>
 
@@ -101,6 +107,11 @@
             <span class="material-symbols-rounded">search</span>
             <input type="text" id="globalSearchInput" class="search-input" placeholder="Search..." oninput="handleGlobalSearch(this.value)">
           </div>
+
+          <button class="btn btn-secondary" onclick="lockAppNow()" title="Lock Screen" style="padding: 7px 12px; display:inline-flex; align-items:center; gap:5px; border-color:rgba(212,175,55,0.4);">
+            <span class="material-symbols-rounded" style="font-size:18px; color:var(--gold);">lock</span>
+            <span class="hide-mobile" style="font-size:0.82rem; font-weight:600;">Lock</span>
+          </button>
 
           <button class="btn btn-primary" onclick="openNewLoanModal()" id="topbarNewLoanBtn">
             <span class="material-symbols-rounded">add</span>
@@ -580,6 +591,91 @@
               </div>
 
               <div id="connectionStatusAlert" style="margin-top: 20px; display:none;"></div>
+            </div>
+          </div>
+
+          <!-- App Lock & Security Settings Card -->
+          <div class="card" style="max-width: 680px; border: 1px solid rgba(212,175,55,0.35);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <h2 class="card-title" style="display:flex; align-items:center; gap:8px;">
+                  <span class="material-symbols-rounded" style="color:var(--gold);">shield_lock</span>
+                  <span>App Lock & Biometric Security</span>
+                </h2>
+                <div class="card-subtitle">Protect financial data with PIN, Fingerprint & Google login</div>
+              </div>
+              <button class="btn btn-secondary" onclick="lockAppNow()" style="font-size:0.8rem; padding:6px 12px; border-color:var(--gold); color:var(--gold);">
+                <span class="material-symbols-rounded" style="font-size:16px;">lock</span>
+                <span>Lock Screen Now</span>
+              </button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <!-- Toggle App Lock -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div>
+                  <strong style="font-size:0.95rem;">Enable App Lock on Startup</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)">Requires PIN or Fingerprint when opening the app</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span id="appLockStateText" style="font-size:0.82rem; font-weight:700; color:var(--gold);">Active</span>
+                  <button class="btn btn-secondary" id="toggleAppLockBtn" onclick="toggleAppLockSetting()" style="padding:5px 12px; font-size:0.8rem;">Disable</button>
+                </div>
+              </div>
+
+              <!-- PIN Config -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div>
+                  <strong style="font-size:0.95rem;">Security PIN</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)">Current PIN: <span id="currentPinDisplay" style="font-family:monospace; font-weight:700; color:var(--gold);">•••• (Default: 1234)</span></div>
+                </div>
+                <button class="btn btn-secondary" onclick="openChangePinModal()">Change PIN</button>
+              </div>
+
+              <!-- Fingerprint / Biometrics -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div>
+                  <strong style="font-size:0.95rem;">Fingerprint / Face ID (WebAuthn)</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)" id="biometricSupportNotice">Android Fingerprint, iPhone Face ID, & Windows Hello support</div>
+                </div>
+                <button class="btn btn-primary" onclick="enrollBiometrics()" id="enrollBioBtn" style="padding:6px 12px; font-size:0.82rem;">
+                  <span class="material-symbols-rounded" style="font-size:16px;">fingerprint</span>
+                  <span>Test Sensor</span>
+                </button>
+              </div>
+
+              <!-- Linked Google Account / Gmail -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div>
+                  <strong style="font-size:0.95rem;">Admin Gmail Account</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)" id="linkedGmailDisplay">admin@vrfinance.com</div>
+                </div>
+                <button class="btn btn-secondary" onclick="openLinkGoogleModal()" id="linkGoogleBtn">Configure Gmail</button>
+              </div>
+
+              <!-- Security Question & Recovery -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div>
+                  <strong style="font-size:0.95rem;">PIN Recovery Question & Key</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)">Used to safely retrieve or reset forgotten PIN</div>
+                </div>
+                <button class="btn btn-secondary" onclick="openSecurityQuestionConfigModal()">Setup Recovery</button>
+              </div>
+
+              <!-- Auto-Lock Timer -->
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong style="font-size:0.95rem;">Auto-Lock Inactivity Timeout</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)">Lock automatically when app is idle or minimized</div>
+                </div>
+                <select id="autoLockSelect" class="form-control" style="width:160px;" onchange="saveAutoLockSetting(this.value)">
+                  <option value="immediate">Immediately</option>
+                  <option value="1">After 1 minute</option>
+                  <option value="5" selected>After 5 minutes</option>
+                  <option value="15">After 15 minutes</option>
+                  <option value="never">Never</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1237,6 +1333,276 @@
           <span>New Repayment</span>
         </button>
         <button type="button" class="btn btn-secondary" onclick="closeModal('investorHistoryModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. Change Security PIN Modal -->
+  <div class="modal-overlay" id="changePinModal">
+    <div class="modal-sheet" style="max-width: 420px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Change Security PIN</h3>
+          <span class="card-subtitle">Set a new 4-digit numeric passcode</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('changePinModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="changePinForm" onsubmit="saveNewPin(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Current PIN *</label>
+            <input type="password" id="oldPinInput" class="form-control" maxlength="6" inputmode="numeric" placeholder="Enter current PIN" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New 4-Digit PIN *</label>
+            <input type="password" id="newPinInput" class="form-control" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="e.g. 5678" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New PIN *</label>
+            <input type="password" id="confirmPinInput" class="form-control" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="Re-enter new PIN" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('changePinModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update PIN</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 11. Forgot PIN & Password Retrieval Modal -->
+  <div class="modal-overlay" id="forgotPinModal">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Reset / Retrieve PIN</h3>
+          <span class="card-subtitle">Verify your identity to reset your passcode</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('forgotPinModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button type="button" class="btn btn-secondary flex-1" id="tabRecoveryQuestionBtn" onclick="switchRecoveryTab('question')" style="font-size:0.8rem; padding:8px;">Security Question</button>
+          <button type="button" class="btn btn-secondary flex-1" id="tabRecoveryEmailBtn" onclick="switchRecoveryTab('email')" style="font-size:0.8rem; padding:8px;">Gmail OTP</button>
+          <button type="button" class="btn btn-secondary flex-1" id="tabRecoveryKeyBtn" onclick="switchRecoveryTab('key')" style="font-size:0.8rem; padding:8px;">Master Key</button>
+        </div>
+
+        <!-- Section A: Security Question -->
+        <div id="recoverySectionQuestion">
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">Answer your secret security question to unlock and choose a new PIN.</p>
+          <div class="form-group">
+            <label class="form-label">Security Question</label>
+            <div id="recoveryQuestionText" style="padding:10px 14px; background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); font-weight:600; font-size:0.9rem;">What is your business keyword?</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Your Secret Answer *</label>
+            <input type="text" id="recoveryAnswerInput" class="form-control" placeholder="Enter answer (Default: vrfinance)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Set New 4-Digit PIN *</label>
+            <input type="password" id="resetPinInputQ" class="form-control" maxlength="4" inputmode="numeric" placeholder="e.g. 1234">
+          </div>
+          <button type="button" class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="verifySecurityQuestionAndReset()">
+            Verify & Reset PIN
+          </button>
+        </div>
+
+        <!-- Section B: Gmail OTP -->
+        <div id="recoverySectionEmail" style="display:none;">
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">Send an authorization code to your registered Gmail address.</p>
+          <div class="form-group">
+            <label class="form-label">Registered Gmail</label>
+            <input type="email" id="recoveryEmailDisplay" class="form-control" readonly>
+          </div>
+          <button type="button" class="btn btn-secondary" style="width:100%; margin-bottom:14px;" onclick="sendRecoveryOtp()">
+            <span class="material-symbols-rounded">mark_email_read</span>
+            <span>Generate / Send 6-Digit OTP</span>
+          </button>
+          <div id="otpInputGroup" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">Enter 6-Digit OTP Code *</label>
+              <input type="text" id="recoveryOtpInput" class="form-control" maxlength="6" inputmode="numeric" placeholder="6-digit code">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Set New 4-Digit PIN *</label>
+              <input type="password" id="resetPinInputE" class="form-control" maxlength="4" inputmode="numeric" placeholder="e.g. 1234">
+            </div>
+            <button type="button" class="btn btn-success" style="width:100%;" onclick="verifyOtpAndReset()">
+              Verify OTP & Set New PIN
+            </button>
+          </div>
+        </div>
+
+        <!-- Section C: Master Key -->
+        <div id="recoverySectionKey" style="display:none;">
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">Use the master emergency recovery key provided during security setup.</p>
+          <div class="form-group">
+            <label class="form-label">Master Recovery Key *</label>
+            <input type="text" id="recoveryKeyInput" class="form-control" placeholder="e.g. VRF-9821-SAFE">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Set New 4-Digit PIN *</label>
+            <input type="password" id="resetPinInputK" class="form-control" maxlength="4" inputmode="numeric" placeholder="e.g. 1234">
+          </div>
+          <button type="button" class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="verifyKeyAndReset()">
+            Verify Master Key & Reset
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('forgotPinModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12. Security Question Setup Modal -->
+  <div class="modal-overlay" id="securityQuestionModal">
+    <div class="modal-sheet" style="max-width: 460px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Recovery Setup</h3>
+          <span class="card-subtitle">Set your security question and view your master recovery key</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('securityQuestionModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="securityQuestionForm" onsubmit="saveSecurityQuestionSettings(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Security Question *</label>
+            <select id="configSecQuestionSelect" class="form-control">
+              <option value="What is your business keyword?">What is your business keyword?</option>
+              <option value="What is your primary bank name?">What is your primary bank name?</option>
+              <option value="What was your first school name?">What was your first school name?</option>
+              <option value="What is your favorite personal city?">What is your favorite personal city?</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Secret Answer *</label>
+            <input type="text" id="configSecAnswerInput" class="form-control" placeholder="Enter answer" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Master Recovery Key</label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="configMasterKeyDisplay" class="form-control" readonly style="font-family:monospace; font-weight:700; color:var(--gold);">
+              <button type="button" class="btn btn-secondary" onclick="generateNewMasterKey()" title="Generate New Key">
+                <span class="material-symbols-rounded">autorenew</span>
+              </button>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Keep this key in a safe place. It can unlock the app if all else fails.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('securityQuestionModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 13. Link Google / Admin Gmail Modal -->
+  <div class="modal-overlay" id="linkGoogleModal">
+    <div class="modal-sheet" style="max-width: 440px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Admin Gmail / Google Account</h3>
+          <span class="card-subtitle">Connect your authorized Gmail address</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('linkGoogleModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="linkGoogleForm" onsubmit="saveLinkedGoogleAccount(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Administrator Gmail Address *</label>
+            <input type="email" id="adminGmailInput" class="form-control" placeholder="e.g. venu.vrfinance@gmail.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Display Name</label>
+            <input type="text" id="adminNameInput" class="form-control" placeholder="VR Finance Admin">
+          </div>
+          <div style="background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.3); border-radius:var(--radius-sm); padding:10px 14px; font-size:0.82rem; color:var(--gold);">
+            Connecting this Gmail enables One-Tap Google Sign-In and allows instant PIN reset via email OTP verification.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('linkGoogleModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════ Full-Screen App Lock & Biometric Login Overlay ════════ -->
+  <div id="appLockOverlay" class="app-lock-overlay hidden">
+    <div class="lock-card">
+      <div class="lock-logo-wrap">
+        <img src="logo.png" alt="VR Finance Logo" class="lock-logo-img">
+      </div>
+      <div class="lock-brand-title">VR FINANCE</div>
+      <div class="lock-brand-subtitle">YOUR GOALS • OUR PRIORITY</div>
+
+      <div id="lockStatusMsg" class="lock-status-msg">Enter 4-Digit Security PIN or Use Biometrics</div>
+
+      <!-- PIN Indicator Dots -->
+      <div class="pin-dots-container" id="pinDotsContainer">
+        <div class="pin-dot" id="pindot-0"></div>
+        <div class="pin-dot" id="pindot-1"></div>
+        <div class="pin-dot" id="pindot-2"></div>
+        <div class="pin-dot" id="pindot-3"></div>
+      </div>
+
+      <!-- Touch Numeric Keypad -->
+      <div class="lock-keypad">
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('1')">1</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('2')">2</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('3')">3</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('4')">4</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('5')">5</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('6')">6</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('7')">7</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('8')">8</button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('9')">9</button>
+        <button type="button" class="keypad-btn biometric-btn" onclick="triggerBiometricAuth()" title="Unlock with Fingerprint">
+          <span class="material-symbols-rounded">fingerprint</span>
+        </button>
+        <button type="button" class="keypad-btn" onclick="pressPinDigit('0')">0</button>
+        <button type="button" class="keypad-btn action-btn" onclick="pressPinBackspace()" title="Delete">
+          <span class="material-symbols-rounded">backspace</span>
+        </button>
+      </div>
+
+      <!-- Biometric Unlock Button -->
+      <button type="button" class="biometric-pulse-btn" onclick="triggerBiometricAuth()">
+        <span class="material-symbols-rounded">fingerprint</span>
+        <span>Unlock with Fingerprint / Face ID</span>
+      </button>
+
+      <!-- Google / Gmail Sign In Button -->
+      <button type="button" class="google-signin-btn" onclick="triggerGoogleSignIn()">
+        <svg class="google-icon" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span id="googleSignInBtnText">Sign in with Google / Gmail</span>
+      </button>
+
+      <!-- Footer Links -->
+      <div class="lock-footer-links">
+        <button type="button" class="lock-link" onclick="openForgotPinModal()">Forgot PIN / Password?</button>
+        <button type="button" class="lock-link" onclick="promptSwitchAccount()">Switch User</button>
       </div>
     </div>
   </div>

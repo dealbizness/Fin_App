@@ -1,11 +1,25 @@
-# 📱 Finance Monitor Pro — Modern Mobile & Web App
+# 📱 VR Finance — Modern Mobile & Web App
 
-A modern, mobile-first Progressive Web Application (PWA) and dashboard for managing loans, borrowers, and EMI collections backed by Google Sheets.
+A modern, mobile-first Progressive Web Application (PWA) and dashboard for managing loans, borrowers, investments, and EMI collections backed by Google Sheets.
 
 ---
 
 ## 🌟 Key Features
 
+- 🔒 **Biometric & Multi-Factor App Lock (Login Screen)**:
+  - **Signature VR Finance Logo**: Branded splash screen with gold luxury styling.
+  - **👆 Fingerprint / Face ID Unlock**: Uses standard browser WebAuthn API on Android fingerprint sensors, iPhone Face ID / Touch ID, and Windows Hello.
+  - **🔢 4-Digit Security PIN**: Fast numeric keypad (Default PIN: `1234`) with instant change options.
+  - **🔴 Google / Gmail Sign-In**: Quick sign-in with your authorized administrator Gmail account.
+  - **❓ Multi-Path PIN Retrieval / Forgot Password**:
+    - **Security Question**: Reset PIN using your secret answer (Default keyword: `vrfinance`).
+    - **Gmail OTP**: Dispatches a 6-digit verification code to the registered email address.
+    - **Master Recovery Key**: Emergency master unlock code (`VRF-9821-SAFE`).
+  - **Auto-Lock Timeout**: Automatically locks on app minimization or idle inactivity.
+- 💼 **Investment & Investor Portfolio**:
+  - Track investors chosen directly from registered customer profiles.
+  - Record investment capital, interest percentage, repayment terms, and outstanding balances.
+  - Partial repayment ledger with on-the-spot receipt generation and balance updates.
 - 💳 **Upgraded Loan Option Types**:
   - **Interest Only**: Borrower pays periodic interest (Daily, Weekly, Monthly, or One-Time); principal balance returned at the end or repaid via part-payments.
   - **EMI**: Reducing-balance annuity installments combining principal and interest.

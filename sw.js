@@ -1,11 +1,14 @@
 // VR Finance Service Worker
-const CACHE_NAME = 'vrfinance-v1.1';
+const CACHE_NAME = 'vrfinance-v2.0';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
-  './manifest.json'
+  './manifest.json',
+  './logo.png',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {

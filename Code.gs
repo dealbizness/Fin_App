@@ -91,7 +91,7 @@ function handleApiPostRequest_(action, data) {
       case 'updateCustomer':
         return updateCustomer(data);
       case 'deleteCustomer':
-        return deleteCustomer(data.customerId);
+        return deleteCustomer(data.customerId || data.CustomerID);
       case 'createLoan':
         return createLoan(data);
       case 'updateLoan':
@@ -302,11 +302,11 @@ function addCustomer(data) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const name  = String(data.name || '').trim();
-    const phone = String(data.phone || '').replace(/[\s-]/g, '');
+    const name  = String(data.name || data.Name || '').trim();
+    const phone = String(data.phone || data.Phone || '').replace(/[\s-]/g, '');
     if (!name) return { success: false, message: 'Customer name is required.' };
     if (!/^\+?\d{10,13}$/.test(phone)) return { success: false, message: 'Enter a valid phone number (10 digits).' };
-    if (data.email && !/^\S+@\S+\.\S+$/.test(String(data.email).trim())) {
+    if ((data.email || data.Email) && !/^\S+@\S+\.\S+$/.test(String(data.email || data.Email).trim())) {
       return { success: false, message: 'Enter a valid email address.' };
     }
     const last10 = s => String(s).replace(/\D/g, '').slice(-10);
@@ -314,16 +314,16 @@ function addCustomer(data) {
     if (dup) return { success: false, message: 'Phone already registered to ' + dup.Name + ' (' + dup.CustomerID + ').' };
 
     const sheet = getSheet_(SHEET_NAMES.CUSTOMERS);
-    const id = generateId_('CUS');
+    const id = data.CustomerID || data.customerId || generateId_('CUS');
     sheet.appendRow([
       id, name, phone,
-      String(data.email || '').trim(),
-      String(data.address || '').trim(),
-      data.idProof || '',
-      String(data.idNumber || '').trim(),
-      formatDateIN_(new Date()),
-      data.status || 'Active',
-      String(data.notes || '').trim()
+      String(data.email || data.Email || '').trim(),
+      String(data.address || data.Address || '').trim(),
+      data.idProof || data.IDProof || '',
+      String(data.idNumber || data.IDNumber || '').trim(),
+      data.JoinDate || data.joinDate || formatDateIN_(new Date()),
+      data.status || data.Status || 'Active',
+      String(data.notes || data.Notes || '').trim()
     ]);
     SpreadsheetApp.flush();
     return { success: true, customerId: id, message: 'Customer "' + name + '" added successfully!' };
@@ -390,17 +390,23 @@ function updateCustomer(data) {
   try {
     const sheet = getSheet_(SHEET_NAMES.CUSTOMERS);
     const allData = sheet.getDataRange().getValues();
+    const targetId = String(data.customerId || data.CustomerID || '').trim();
+    if (!targetId) return { success: false, message: 'Customer ID is required.' };
+
     for (let i = 1; i < allData.length; i++) {
-      if (allData[i][0] === data.customerId) {
+      if (String(allData[i][0]).trim() === targetId) {
         const row = i + 1;
-        sheet.getRange(row, 2).setValue(data.name);
-        sheet.getRange(row, 3).setValue(data.phone);
-        sheet.getRange(row, 4).setValue(data.email   || '');
-        sheet.getRange(row, 5).setValue(data.address  || '');
-        sheet.getRange(row, 6).setValue(data.idProof  || '');
-        sheet.getRange(row, 7).setValue(data.idNumber || '');
-        sheet.getRange(row, 9).setValue(data.status   || 'Active');
-        sheet.getRange(row, 10).setValue(data.notes   || '');
+        const name = String(data.name || data.Name || '').trim();
+        const phone = String(data.phone || data.Phone || '').replace(/[\s-]/g, '');
+        if (name) sheet.getRange(row, 2).setValue(name);
+        if (phone) sheet.getRange(row, 3).setValue(phone);
+        sheet.getRange(row, 4).setValue(String(data.email || data.Email || '').trim());
+        sheet.getRange(row, 5).setValue(String(data.address || data.Address || '').trim());
+        sheet.getRange(row, 6).setValue(data.idProof || data.IDProof || '');
+        sheet.getRange(row, 7).setValue(String(data.idNumber || data.IDNumber || '').trim());
+        sheet.getRange(row, 9).setValue(data.status || data.Status || 'Active');
+        sheet.getRange(row, 10).setValue(String(data.notes || data.Notes || '').trim());
+        SpreadsheetApp.flush();
         return { success: true, message: 'Customer updated!' };
       }
     }
@@ -412,19 +418,22 @@ function updateCustomer(data) {
 
 function deleteCustomer(customerId) {
   try {
-    const loans = getLoansByCustomer(customerId);
+    const id = String(customerId || '').trim();
+    if (!id) return { success: false, message: 'Customer ID is required.' };
+    const loans = getLoansByCustomer(id);
     if (loans.some(l => l.Status === 'Active')) {
       return { success: false, message: 'Cannot delete — active loans exist!' };
     }
     const sheet = getSheet_(SHEET_NAMES.CUSTOMERS);
     const data  = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === customerId) {
+      if (String(data[i][0]).trim() === id) {
         sheet.deleteRow(i + 1);
+        SpreadsheetApp.flush();
         return { success: true, message: 'Customer deleted!' };
       }
     }
-    return { success: false, message: 'Not found!' };
+    return { success: false, message: 'Customer not found!' };
   } catch (e) {
     return { success: false, message: 'Error: ' + e.message };
   }

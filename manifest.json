@@ -1,11 +1,11 @@
 {
   "name": "VR Finance",
   "short_name": "VR Finance",
-  "description": "Professional Mobile & Web Loan and EMI Management System backed by Google Sheets",
+  "description": "VR Finance — Your Goals • Our Priority. Loan, Investment & EMI System",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "background_color": "#090d16",
+  "theme_color": "#d4af37",
   "orientation": "portrait-primary",
   "icons": [
     {
