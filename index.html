@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Finance Monitor Pro — Mobile & Web Cloud System</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+
+  <!-- Typography & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0">
+
+  <!-- Chart.js for Visual Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Core Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ════════ App Layout ════════ -->
+  <div class="app-layout">
+
+    <!-- ──── Sidebar (Desktop & Tablet Drawer) ──── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="app-brand-icon">
+          <span class="material-symbols-rounded">account_balance</span>
+        </div>
+        <div class="app-brand-title">
+          <span class="brand-name">FinMonitor</span>
+          <span class="brand-badge">Pro Edition</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-link active" data-view="dashboard" onclick="switchView('dashboard')">
+          <span class="material-symbols-rounded">dashboard</span>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-link" data-view="customers" onclick="switchView('customers')">
+          <span class="material-symbols-rounded">group</span>
+          <span>Customers</span>
+        </button>
+        <button class="nav-link" data-view="loans" onclick="switchView('loans')">
+          <span class="material-symbols-rounded">account_balance_wallet</span>
+          <span>Loans</span>
+        </button>
+        <button class="nav-link" data-view="emi" onclick="switchView('emi')">
+          <span class="material-symbols-rounded">calendar_month</span>
+          <span>EMI Tracker</span>
+        </button>
+        <button class="nav-link" data-view="reports" onclick="switchView('reports')">
+          <span class="material-symbols-rounded">bar_chart</span>
+          <span>Reports</span>
+        </button>
+        <button class="nav-link" data-view="settings" onclick="switchView('settings')">
+          <span class="material-symbols-rounded">cloud_sync</span>
+          <span>Cloud & Sheets</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="cloud-sync-badge">
+          <span class="sync-dot" id="syncStatusDot"></span>
+          <span id="syncStatusText">Sheet Ready</span>
+        </div>
+        <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+          <span class="material-symbols-rounded" id="themeIcon">light_mode</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ──── Main Content Wrapper ──── -->
+    <main class="main-wrapper">
+
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()">
+            <span class="material-symbols-rounded">menu</span>
+          </button>
+          <h1 class="page-title" id="pageTitleHeading">Dashboard</h1>
+        </div>
+
+        <div class="topbar-right">
+          <div class="search-input-wrapper">
+            <span class="material-symbols-rounded">search</span>
+            <input type="text" id="globalSearchInput" class="search-input" placeholder="Search..." oninput="handleGlobalSearch(this.value)">
+          </div>
+
+          <button class="btn btn-primary" onclick="openNewLoanModal()" id="topbarNewLoanBtn">
+            <span class="material-symbols-rounded">add</span>
+            <span>New Loan</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <div class="content-area">
+
+        <!-- ════════ 1. DASHBOARD VIEW ════════ -->
+        <section id="view-dashboard" class="view-section active">
+
+          <!-- Mobile Quick Action Carousel -->
+          <div class="mobile-action-bar">
+            <button class="quick-action-pill" onclick="openPaymentModal()">
+              <span class="material-symbols-rounded" style="color:var(--success)">payments</span>
+              <span>Collect EMI</span>
+            </button>
+            <button class="quick-action-pill" onclick="openNewLoanModal()">
+              <span class="material-symbols-rounded" style="color:var(--primary)">add_circle</span>
+              <span>New Loan</span>
+            </button>
+            <button class="quick-action-pill" onclick="openCustomerModal()">
+              <span class="material-symbols-rounded" style="color:var(--info)">person_add</span>
+              <span>New Customer</span>
+            </button>
+            <button class="quick-action-pill" onclick="syncWithGoogleSheet()">
+              <span class="material-symbols-rounded" style="color:var(--warning)">sync</span>
+              <span>Sync Sheet</span>
+            </button>
+          </div>
+
+          <!-- Key Metrics Grid -->
+          <div class="metrics-grid">
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="stat-label">Total Outstanding</span>
+                <span class="stat-value" id="statOutstanding">₹0</span>
+                <span class="stat-subtext" id="statActiveLoans">0 Active Loans</span>
+              </div>
+              <div class="stat-icon-wrapper danger">
+                <span class="material-symbols-rounded">pending_actions</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="stat-label">Total Collected</span>
+                <span class="stat-value" id="statCollected">₹0</span>
+                <span class="stat-subtext" id="statTodayCollected">₹0 collected today</span>
+              </div>
+              <div class="stat-icon-wrapper success">
+                <span class="material-symbols-rounded">verified</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="stat-label">Total Disbursed</span>
+                <span class="stat-value" id="statDisbursed">₹0</span>
+                <span class="stat-subtext" id="statTotalLoans">0 Total Loans</span>
+              </div>
+              <div class="stat-icon-wrapper primary">
+                <span class="material-symbols-rounded">account_balance_wallet</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="stat-label">Overdue EMIs</span>
+                <span class="stat-value" id="statOverdueCount" style="color:var(--danger)">0</span>
+                <span class="stat-subtext" id="statOverdueAmount">Action required</span>
+              </div>
+              <div class="stat-icon-wrapper warning">
+                <span class="material-symbols-rounded">warning</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analytics Charts & Overview -->
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">
+                    <span class="material-symbols-rounded" style="color:var(--primary)">show_chart</span>
+                    Monthly Collections Trend
+                  </h2>
+                  <span class="card-subtitle">Performance over recent months</span>
+                </div>
+              </div>
+              <div style="position: relative; height: 260px; width: 100%;">
+                <canvas id="collectionsChart"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">
+                    <span class="material-symbols-rounded" style="color:var(--info)">donut_large</span>
+                    Loan Portfolio
+                  </h2>
+                  <span class="card-subtitle">Active vs Closed ratios</span>
+                </div>
+              </div>
+              <div style="position: relative; height: 260px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                <canvas id="portfolioChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Urgent Attention: Overdue EMIs with WhatsApp Reminder -->
+          <div class="card" id="overdueCard">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">
+                  <span class="material-symbols-rounded" style="color:var(--danger)">alarm_on</span>
+                  Overdue EMIs
+                </h2>
+                <span class="card-subtitle">Send WhatsApp reminders and collect immediate payments</span>
+              </div>
+            </div>
+
+            <!-- Desktop View -->
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Loan ID</th>
+                    <th>EMI #</th>
+                    <th>Due Date</th>
+                    <th>Amount</th>
+                    <th>Days Overdue</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="overdueTableBody">
+                  <!-- Populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile View Touch Cards -->
+            <div class="mobile-card-list" id="overdueMobileCards">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Upcoming EMIs (Next 7 Days) -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">
+                  <span class="material-symbols-rounded" style="color:var(--info)">event_upcoming</span>
+                  Upcoming EMIs (Next 7 Days)
+                </h2>
+                <span class="card-subtitle">Upcoming payments scheduled this week</span>
+              </div>
+            </div>
+
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Loan ID</th>
+                    <th>EMI #</th>
+                    <th>Due Date</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="upcomingTableBody">
+                  <!-- Dynamic -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mobile-card-list" id="upcomingMobileCards">
+              <!-- Dynamic -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ════════ 2. CUSTOMERS VIEW ════════ -->
+        <section id="view-customers" class="view-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Customer Directory</h2>
+                <span class="card-subtitle" id="customersCountLabel">Manage borrower profiles and KYC records</span>
+              </div>
+              <button class="btn btn-primary" onclick="openCustomerModal()">
+                <span class="material-symbols-rounded">person_add</span>
+                <span>Add Customer</span>
+              </button>
+            </div>
+
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Address</th>
+                    <th>Active Loans</th>
+                    <th>Outstanding</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="customersTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="mobile-card-list" id="customersMobileCards"></div>
+          </div>
+        </section>
+
+        <!-- ════════ 3. LOANS VIEW ════════ -->
+        <section id="view-loans" class="view-section">
+          <div class="card">
+            <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 class="card-title">Loan Accounts</h2>
+                <span class="card-subtitle" id="loansCountLabel">All active & completed financing contracts</span>
+              </div>
+              <button class="btn btn-primary" onclick="openNewLoanModal()">
+                <span class="material-symbols-rounded">add_circle</span>
+                <span>Add New Loan</span>
+              </button>
+            </div>
+
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Loan ID</th>
+                    <th>Customer</th>
+                    <th>Principal</th>
+                    <th>Type & Rate</th>
+                    <th>Tenure</th>
+                    <th>Installment</th>
+                    <th>Paid / Total</th>
+                    <th>Outstanding</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="loansTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="mobile-card-list" id="loansMobileCards"></div>
+          </div>
+        </section>
+
+        <!-- ════════ 4. EMI TRACKER VIEW ════════ -->
+        <section id="view-emi" class="view-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Comprehensive EMI Tracker</h2>
+                <span class="card-subtitle">Search, filter, collect payments, and dispatch reminders</span>
+              </div>
+              <div class="action-btn-group">
+                <button class="btn btn-secondary" onclick="filterEMIs('all')">All</button>
+                <button class="btn btn-secondary" onclick="filterEMIs('Overdue')">Overdue</button>
+                <button class="btn btn-secondary" onclick="filterEMIs('Pending')">Pending</button>
+                <button class="btn btn-secondary" onclick="filterEMIs('Paid')">Paid</button>
+              </div>
+            </div>
+
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>EMI ID</th>
+                    <th>Customer</th>
+                    <th>Loan ID</th>
+                    <th>Installment</th>
+                    <th>Due Date</th>
+                    <th>EMI Amount</th>
+                    <th>Principal/Interest</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="emiTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="mobile-card-list" id="emiMobileCards"></div>
+          </div>
+        </section>
+
+        <!-- ════════ 5. REPORTS VIEW ════════ -->
+        <section id="view-reports" class="view-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Financial Reports & Exports</h2>
+                <span class="card-subtitle">Detailed portfolio outstanding and collection ledgers</span>
+              </div>
+              <button class="btn btn-secondary" onclick="exportOutstandingCSV()">
+                <span class="material-symbols-rounded">download</span>
+                <span>Export CSV</span>
+              </button>
+            </div>
+
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Customer Name</th>
+                    <th>Loan ID</th>
+                    <th>Loan Amount</th>
+                    <th>EMI Amount</th>
+                    <th>Total Paid</th>
+                    <th>Outstanding</th>
+                    <th>Progress</th>
+                  </tr>
+                </thead>
+                <tbody id="reportsTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="mobile-card-list" id="reportsMobileCards"></div>
+          </div>
+        </section>
+
+        <!-- ════════ 6. CLOUD & GOOGLE SHEETS SYNC VIEW ════════ -->
+        <section id="view-settings" class="view-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Google Sheets Cloud Connection</h2>
+                <span class="card-subtitle">Connect directly to your Google Spreadsheet via Apps Script REST API</span>
+              </div>
+            </div>
+
+            <div style="max-width: 680px;">
+              <div class="form-group">
+                <label class="form-label">Google Apps Script Web App Endpoint URL</label>
+                <input type="url" id="appScriptUrlInput" class="form-control" value="https://script.google.com/macros/s/AKfycbyLjlOHlQizWwHVMnP-HageJJRrZ9TQfTxxSUP8VhKBTj0YSGLu7axNeEx1IpITwAHvfw/exec" placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec">
+                <small style="color:var(--text-subtle); display:block; margin-top:6px;">
+                  Deploy the provided Code.gs as Web App (Execute as: Me, Access: Anyone). Paste the Web App URL here.
+                </small>
+              </div>
+
+              <div class="action-btn-group" style="margin-top: 16px;">
+                <button class="btn btn-primary" onclick="testAndSaveSheetConnection()">
+                  <span class="material-symbols-rounded">cloud_sync</span>
+                  <span>Test & Save Connection</span>
+                </button>
+                <button class="btn btn-secondary" onclick="syncWithGoogleSheet()">
+                  <span class="material-symbols-rounded">refresh</span>
+                  <span>Pull Latest Data Now</span>
+                </button>
+              </div>
+
+              <div id="connectionStatusAlert" style="margin-top: 20px; display:none;"></div>
+            </div>
+          </div>
+
+          <div class="card" style="max-width: 680px;">
+            <div class="card-header">
+              <h2 class="card-title">PWA & Offline Preferences</h2>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong>Local Data Cache</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)">Enables instant app opening even without network</div>
+                </div>
+                <button class="btn btn-secondary" onclick="clearLocalCache()">Clear Cache</button>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong>Install on Mobile Device</strong>
+                  <div style="font-size:0.8rem; color:var(--text-muted)">Add to Android / iOS Home Screen for native experience</div>
+                </div>
+                <button class="btn btn-primary" onclick="promptInstallPWA()">Install App</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- ════════ Mobile Bottom Navigation ════════ -->
+    <nav class="bottom-nav">
+      <button class="bottom-nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+        <span class="material-symbols-rounded">dashboard</span>
+        <span>Dashboard</span>
+      </button>
+      <button class="bottom-nav-item" data-view="customers" onclick="switchView('customers')">
+        <span class="material-symbols-rounded">group</span>
+        <span>Borrowers</span>
+      </button>
+      <button class="bottom-nav-item" data-view="loans" onclick="switchView('loans')">
+        <span class="material-symbols-rounded">wallet</span>
+        <span>Loans</span>
+      </button>
+      <button class="bottom-nav-item" data-view="emi" onclick="switchView('emi')">
+        <span class="material-symbols-rounded">calendar_month</span>
+        <span>EMI</span>
+      </button>
+      <button class="bottom-nav-item" data-view="reports" onclick="switchView('reports')">
+        <span class="material-symbols-rounded">bar_chart</span>
+        <span>Reports</span>
+      </button>
+      <button class="bottom-nav-item" data-view="settings" onclick="switchView('settings')">
+        <span class="material-symbols-rounded">cloud</span>
+        <span>Cloud</span>
+      </button>
+    </nav>
+
+    <!-- ════════ Mobile Floating Action Button (FAB) ════════ -->
+    <button class="fab-btn" onclick="openPaymentModal()" title="Collect EMI Payment">
+      <span class="material-symbols-rounded">payments</span>
+    </button>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODALS & BOTTOM SHEETS
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- 1. Customer Modal -->
+  <div class="modal-overlay" id="customerModal">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="customerModalTitle">Add New Customer</h3>
+        <button class="btn-icon" onclick="closeModal('customerModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="customerForm" onsubmit="saveCustomer(event)">
+        <div class="modal-body">
+          <input type="hidden" id="custFormId">
+          <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <input type="text" id="custName" class="form-control" required placeholder="e.g. Ramesh Kumar">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Mobile Number *</label>
+              <input type="tel" id="custPhone" class="form-control" required placeholder="e.g. 9876543210">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="custEmail" class="form-control" placeholder="name@email.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Residential Address</label>
+            <textarea id="custAddress" class="form-control" rows="2" placeholder="Full street address"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">ID Proof Type</label>
+              <select id="custIdProof" class="form-control">
+                <option value="Aadhaar">Aadhaar Card</option>
+                <option value="PAN">PAN Card</option>
+                <option value="Voter ID">Voter ID</option>
+                <option value="Driving License">Driving License</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ID Document Number</label>
+              <input type="text" id="custIdNumber" class="form-control" placeholder="Document Number">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes & Remarks</label>
+            <input type="text" id="custNotes" class="form-control" placeholder="Guarantor details or remarks">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('customerModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Customer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. New / Edit Loan Modal with Live Amortization Calculator -->
+  <div class="modal-overlay" id="newLoanModal">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="loanModalTitle">Issue New Loan</h3>
+        <button class="btn-icon" onclick="closeModal('newLoanModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="newLoanForm" onsubmit="saveLoan(event)">
+        <div class="modal-body">
+          <input type="hidden" id="loanFormId">
+          <div id="loanEditNotice" style="display:none; margin-bottom:14px; padding:10px 14px; background:rgba(245,158,11,0.15); border-left:4px solid var(--warning); border-radius:6px; font-size:0.82rem; color:var(--text);">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Select Borrower *</label>
+            <select id="loanCustomerSelect" class="form-control" required>
+              <option value="">-- Choose Customer --</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Loan Type *</label>
+              <select id="loanTypeSelect" class="form-control" onchange="handleLoanTypeChange(); recalcLoanPreview();">
+                <option value="Interest Only">Only Interest (principal at end)</option>
+                <option value="EMI">EMI (principal + interest)</option>
+                <option value="Flexible">Flexible (no interest, any amount)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Collection Frequency *</label>
+              <select id="loanFreqSelect" class="form-control" onchange="updateTenureUnitLabel(); recalcLoanPreview();">
+                <option value="Daily">Daily</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Monthly" selected>Monthly</option>
+                <option value="One Time">One Time</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Principal Amount (₹) *</label>
+              <input type="number" id="loanAmountInput" class="form-control" required min="1000" step="500" value="50000" oninput="recalcLoanPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Interest Rate (%) *</label>
+              <input type="number" id="loanRateInput" class="form-control" required min="0" step="0.1" value="12" oninput="recalcLoanPreview()">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Interest Period</label>
+              <select id="loanRateTypeSelect" class="form-control" onchange="recalcLoanPreview()">
+                <option value="Yearly">Per Year (Annual %)</option>
+                <option value="Monthly">Per Month (Monthly %)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tenure (<span id="tenureUnitLabel">Months</span>) *</label>
+              <input type="number" id="loanTenureInput" class="form-control" required min="1" max="365" value="12" oninput="recalcLoanPreview()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Loan Disbursal Date *</label>
+            <input type="date" id="loanStartDateInput" class="form-control" required>
+          </div>
+
+          <!-- Real-Time Calculation Preview Box -->
+          <div class="calc-preview-box" id="calcPreviewBox">
+            <div>
+              <div class="calc-item-label">Installment</div>
+              <div class="calc-item-value" id="previewEmiAmount">₹0</div>
+            </div>
+            <div>
+              <div class="calc-item-label">Total Payable</div>
+              <div class="calc-item-value" id="previewTotalPayable">₹0</div>
+            </div>
+            <div>
+              <div class="calc-item-label">Total Interest</div>
+              <div class="calc-item-value" id="previewTotalInterest">₹0</div>
+            </div>
+            <div>
+              <div class="calc-item-label">Final Payment</div>
+              <div class="calc-item-value" id="previewFinalPayment">₹0</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Loan Remarks</label>
+            <input type="text" id="loanNotesInput" class="form-control" placeholder="Purpose of loan, collateral, etc.">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('newLoanModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="loanSubmitBtn">Create Loan Contract</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Record EMI Payment Modal -->
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">Record EMI Payment</h3>
+        <button class="btn-icon" onclick="closeModal('paymentModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="paymentForm" onsubmit="savePayment(event)">
+        <div class="modal-body">
+          <input type="hidden" id="payEmiId">
+          <input type="hidden" id="payLoanId">
+
+          <div class="form-group">
+            <label class="form-label">Select Pending EMI *</label>
+            <select id="payEmiSelect" class="form-control" required onchange="handlePaymentEmiSelect(this.value)">
+              <option value="">-- Choose Pending / Overdue EMI --</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Payment Amount (₹) *</label>
+              <input type="number" id="payAmountInput" class="form-control" required min="1" step="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Date *</label>
+              <input type="date" id="payDateInput" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Payment Method</label>
+              <select id="payModeSelect" class="form-control">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+                <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Received By</label>
+              <input type="text" id="payReceivedByInput" class="form-control" placeholder="Agent / Manager Name">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Receipt / Transaction Reference</label>
+            <input type="text" id="payRemarksInput" class="form-control" placeholder="e.g. UPI Ref # 123456789">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('paymentModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">
+            <span class="material-symbols-rounded">receipt_long</span>
+            <span>Confirm & Print Receipt</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Schedule Details & Amortization Modal -->
+  <div class="modal-overlay" id="loanScheduleModal">
+    <div class="modal-sheet" style="max-width: 800px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="loanScheduleTitle">Loan EMI Schedule</h3>
+          <span class="card-subtitle" id="loanScheduleSubtitle">Breakdown of principal, interest, and balances</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('loanScheduleModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 12px 20px;">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Due Date</th>
+                <th>EMI</th>
+                <th>Principal</th>
+                <th>Interest</th>
+                <th>Remaining</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="loanScheduleTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="schedulePrepayBtn" onclick="openPrincipalPayModalFromSchedule()">
+          <span class="material-symbols-rounded">payments</span>
+          <span id="schedulePrepayBtnText">Pay Principal</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('loanScheduleModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Principal Part-Payment Modal -->
+  <div class="modal-overlay" id="principalPayModal">
+    <div class="modal-sheet" style="max-width: 500px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="principalPayModalTitle">Part-Payment (Principal)</h3>
+        <button class="btn-icon" onclick="closeModal('principalPayModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <form id="principalPayForm" onsubmit="savePrincipalPayment(event)">
+        <div class="modal-body">
+          <input type="hidden" id="prinPayLoanId">
+          <div class="form-group">
+            <label class="form-label">Borrower & Loan Account</label>
+            <input type="text" id="prinPayAccountInfo" class="form-control" readonly style="background:var(--bg-surface-elevated); font-weight:600;">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Principal Outstanding</label>
+              <input type="text" id="prinPayOutstandingDisplay" class="form-control" readonly style="color:var(--danger); font-weight:700;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Amount (₹) *</label>
+              <input type="number" id="prinPayAmountInput" class="form-control" required min="1" step="1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Payment Date *</label>
+              <input type="date" id="prinPayDateInput" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Mode</label>
+              <select id="prinPayModeSelect" class="form-control">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Received By</label>
+            <input type="text" id="prinPayReceivedBy" class="form-control" placeholder="Agent / Manager Name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Remarks</label>
+            <input type="text" id="prinPayRemarks" class="form-control" placeholder="e.g. Part-repayment towards principal">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('principalPayModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">
+            <span class="material-symbols-rounded">verified</span>
+            <span>Confirm Payment</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Printable Payment Voucher / Receipt Modal -->
+  <div class="modal-overlay" id="receiptModal">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">Payment Receipt</h3>
+        <button class="btn-icon" onclick="closeModal('receiptModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div class="modal-body" id="printReceiptContent" style="background:#fff; color:#111; border-radius:8px; padding:20px; font-size:0.9rem;">
+        <!-- Filled dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('receiptModal')">Done</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+          <span class="material-symbols-rounded">print</span>
+          <span>Print Receipt</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
