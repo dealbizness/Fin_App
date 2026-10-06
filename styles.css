@@ -915,9 +915,15 @@ body {
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border);
   z-index: 100;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.bottom-nav::-webkit-scrollbar {
+  display: none;
 }
 [data-theme="light"] .bottom-nav {
   background: rgba(255, 255, 255, 0.95);
@@ -930,16 +936,18 @@ body {
   justify-content: center;
   color: var(--text-subtle);
   text-decoration: none;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 600;
-  gap: 4px;
-  padding: 8px 12px;
+  gap: 2px;
+  padding: 6px 4px;
+  min-width: 48px;
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
   cursor: pointer;
-  flex: 1;
+  flex: 1 0 auto;
   transition: var(--transition-fast);
+  white-space: nowrap;
 }
 
 .bottom-nav-item .material-symbols-rounded {

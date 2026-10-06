@@ -1,5 +1,5 @@
-// Finance Monitor Pro Service Worker
-const CACHE_NAME = 'finmonitor-v1.0';
+// VR Finance Service Worker
+const CACHE_NAME = 'vrfinance-v1.1';
 const ASSETS = [
   './',
   './index.html',

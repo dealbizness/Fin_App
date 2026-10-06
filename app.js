@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   FINANCE MONITOR PRO — Client-Side Application Engine (app.js)
+   VR FINANCE — Client-Side Application Engine (app.js)
    Full-Featured Mobile & Web Controller with Google Sheets Sync
    ═══════════════════════════════════════════════════════════════ */
 
@@ -9,6 +9,10 @@ const state = {
   loans: [],
   emis: [],
   payments: [],
+  investments: [],
+  investmentRepayments: [],
+  investmentFilter: 'all',
+  investmentSearchQuery: '',
   currentView: 'dashboard',
   theme: localStorage.getItem('finmonitor_theme') || 'dark',
   scriptUrl: (localStorage.getItem('finmonitor_script_url') && !localStorage.getItem('finmonitor_script_url').includes('AKfycbyqvsFWUrikjdFNQMRvKIy7Z9nqRY7Z_eoGI3A0k4r9bWAXGfZSvMgIQRlKIiI7OcBYGA'))
@@ -109,7 +113,7 @@ function promptInstallPWA() {
     state.deferredInstallPrompt.prompt();
     state.deferredInstallPrompt.userChoice.then((choiceResult) => {
       if (choiceResult.outcome === 'accepted') {
-        showToast('FinMonitor added to Home Screen!', 'success');
+        showToast('VR Finance added to Home Screen!', 'success');
       }
       state.deferredInstallPrompt = null;
     });
@@ -176,6 +180,7 @@ function switchView(viewName) {
     dashboard: 'Dashboard',
     customers: 'Borrowers & Customers',
     loans: 'Loan Contracts',
+    investments: 'Investment & Investor Portfolio',
     emi: 'EMI Collection Tracker',
     reports: 'Financial Reports',
     settings: 'Cloud & Sheets Sync'
@@ -199,6 +204,8 @@ function loadData() {
       state.loans = parsed.loans || [];
       state.emis = parsed.emis || [];
       state.payments = parsed.payments || [];
+      state.investments = parsed.investments || [];
+      state.investmentRepayments = parsed.investmentRepayments || [];
     } catch (e) {
       console.error('Cache load error:', e);
     }
@@ -207,6 +214,8 @@ function loadData() {
   // Prepopulate sample data if entirely empty
   if (state.customers.length === 0) {
     populateSampleData();
+  } else if (!state.investments || state.investments.length === 0) {
+    populateSampleInvestments();
   }
 
   refreshUI();
@@ -222,7 +231,9 @@ function saveDataLocally() {
     customers: state.customers,
     loans: state.loans,
     emis: state.emis,
-    payments: state.payments
+    payments: state.payments,
+    investments: state.investments,
+    investmentRepayments: state.investmentRepayments
   }));
 }
 
@@ -296,7 +307,87 @@ function populateSampleData() {
     }
   }
 
+  populateSampleInvestments();
   saveDataLocally();
+}
+
+function populateSampleInvestments() {
+  state.investments = [
+    {
+      InvestmentID: 'INV-1001',
+      InvestorID: 'CUS-101',
+      InvestorName: 'Vikram Sharma',
+      InvestorPhone: '9876543210',
+      InvestmentAmount: 500000,
+      InterestRate: 1.5,
+      InterestType: 'Monthly',
+      RepaymentOption: 'Monthly Interest (Principal at end)',
+      TotalRepaid: 50000,
+      Outstanding: 500000,
+      StartDate: '01/01/2026',
+      Status: 'Active',
+      Notes: 'Capital deposit into HDFC current account',
+      CreatedDate: '01/01/2026'
+    },
+    {
+      InvestmentID: 'INV-1002',
+      InvestorID: 'CUS-102',
+      InvestorName: 'Priya Patel',
+      InvestorPhone: '9845123456',
+      InvestmentAmount: 250000,
+      InterestRate: 12,
+      InterestType: 'Yearly',
+      RepaymentOption: 'Quarterly Interest',
+      TotalRepaid: 30000,
+      Outstanding: 220000,
+      StartDate: '15/01/2026',
+      Status: 'Active',
+      Notes: 'Cheque clearance ref #CHQ-8821',
+      CreatedDate: '15/01/2026'
+    }
+  ];
+
+  state.investmentRepayments = [
+    {
+      RepaymentID: 'IRP-1001',
+      InvestmentID: 'INV-1001',
+      InvestorID: 'CUS-101',
+      InvestorName: 'Vikram Sharma',
+      Amount: 25000,
+      PaymentDate: '01/02/2026',
+      RepaymentType: 'Interest Payout',
+      PaymentMode: 'UPI',
+      PaidBy: 'Manager',
+      Remarks: 'Monthly interest return Jan 2026',
+      Timestamp: '01/02/2026 10:30'
+    },
+    {
+      RepaymentID: 'IRP-1002',
+      InvestmentID: 'INV-1001',
+      InvestorID: 'CUS-101',
+      InvestorName: 'Vikram Sharma',
+      Amount: 25000,
+      PaymentDate: '01/03/2026',
+      RepaymentType: 'Interest Payout',
+      PaymentMode: 'Bank Transfer',
+      PaidBy: 'Manager',
+      Remarks: 'Monthly interest return Feb 2026',
+      Timestamp: '01/03/2026 11:15'
+    },
+    {
+      RepaymentID: 'IRP-1003',
+      InvestmentID: 'INV-1002',
+      InvestorID: 'CUS-102',
+      InvestorName: 'Priya Patel',
+      Amount: 30000,
+      PaymentDate: '28/02/2026',
+      RepaymentType: 'Principal Reduction',
+      PaymentMode: 'UPI',
+      PaidBy: 'Manager',
+      Remarks: 'Partial principal repayment',
+      Timestamp: '28/02/2026 15:45'
+    }
+  ];
 }
 
 function addMonths(date, n) {
@@ -537,6 +628,7 @@ function refreshUI() {
   renderDashboard();
   renderCustomers();
   renderLoans();
+  renderInvestments();
   renderEMIs();
   renderReports();
 }
@@ -727,8 +819,8 @@ function getWhatsAppReminderUrl(emi) {
   const isOverdue = emi.Status === 'Overdue';
   const greeting = `Dear ${emi.CustomerName},`;
   const text = isOverdue
-    ? `${greeting} This is an urgent reminder from Finance Monitor that your EMI #${emi.EMINumber} of ${formatCurrency(emi.EMIAmount)} for Loan ${emi.LoanID} was due on ${emi.DueDate} and is currently OVERDUE. Kindly pay immediately to prevent late fees.`
-    : `${greeting} Gentle reminder from Finance Monitor that your EMI #${emi.EMINumber} of ${formatCurrency(emi.EMIAmount)} for Loan ${emi.LoanID} is due on ${emi.DueDate}. Thank you!`;
+    ? `${greeting} This is an urgent reminder from VR Finance that your EMI #${emi.EMINumber} of ${formatCurrency(emi.EMIAmount)} for Loan ${emi.LoanID} was due on ${emi.DueDate} and is currently OVERDUE. Kindly pay immediately to prevent late fees.`
+    : `${greeting} Gentle reminder from VR Finance that your EMI #${emi.EMINumber} of ${formatCurrency(emi.EMIAmount)} for Loan ${emi.LoanID} is due on ${emi.DueDate}. Thank you!`;
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
@@ -1009,6 +1101,210 @@ function renderLoans() {
   });
 }
 
+// ── 3B. Investments & Investor Portfolio View ──
+function renderInvestments() {
+  const table = document.getElementById('investmentsTableBody');
+  const cards = document.getElementById('investmentsMobileCards');
+  if (!table || !cards) return;
+
+  table.innerHTML = '';
+  cards.innerHTML = '';
+
+  const investments = state.investments || [];
+
+  // Calculate metrics
+  let totalInvested = 0;
+  let totalRepaid = 0;
+  let totalOutstanding = 0;
+  let activeInvestorsCount = 0;
+
+  investments.forEach((inv) => {
+    const amt = Number(inv.InvestmentAmount) || 0;
+    const rep = Number(inv.TotalRepaid) || 0;
+    const out = Number(inv.Outstanding) || 0;
+    totalInvested += amt;
+    totalRepaid += rep;
+    if (inv.Status === 'Active') {
+      totalOutstanding += out;
+      activeInvestorsCount++;
+    }
+  });
+
+  // Update Stats in DOM
+  const statInvestedEl = document.getElementById('statTotalInvested');
+  const statRepaidEl = document.getElementById('statTotalRepaidToInvestors');
+  const statOutEl = document.getElementById('statOutstandingToInvestors');
+  const statActiveEl = document.getElementById('statActiveInvestors');
+  const statCountEl = document.getElementById('statTotalInvestmentsCount');
+
+  if (statInvestedEl) statInvestedEl.textContent = formatCurrency(totalInvested);
+  if (statRepaidEl) statRepaidEl.textContent = formatCurrency(totalRepaid);
+  if (statOutEl) statOutEl.textContent = formatCurrency(totalOutstanding);
+  if (statActiveEl) statActiveEl.textContent = activeInvestorsCount;
+  if (statCountEl) statCountEl.textContent = `${investments.length} Total Investments`;
+
+  // Apply Search & Status Filter
+  let filtered = [...investments];
+
+  if (state.investmentFilter && state.investmentFilter !== 'all') {
+    filtered = filtered.filter((inv) => inv.Status === state.investmentFilter);
+  }
+
+  if (state.investmentSearchQuery) {
+    const q = state.investmentSearchQuery.toLowerCase();
+    filtered = filtered.filter((inv) => {
+      const name = (inv.InvestorName || '').toLowerCase();
+      const id = (inv.InvestmentID || '').toLowerCase();
+      const phone = (inv.InvestorPhone || '').toLowerCase();
+      const notes = (inv.Notes || '').toLowerCase();
+      return name.includes(q) || id.includes(q) || phone.includes(q) || notes.includes(q);
+    });
+  }
+
+  if (filtered.length === 0) {
+    table.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:32px;">No investments found matching criteria. Click "+ New Investment" to record investor capital.</td></tr>`;
+    cards.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:24px;">No investments found matching criteria.</div>`;
+    return;
+  }
+
+  filtered.forEach((inv) => {
+    const isSettled = inv.Status === 'Settled';
+    const statusBadge = isSettled
+      ? '<span class="badge badge-success">Settled</span>'
+      : '<span class="badge badge-warning">Active</span>';
+
+    const rateText = `${inv.InterestRate}% ${inv.InterestType === 'Monthly' ? 'p.m.' : 'p.a.'}`;
+
+    // Desktop Row
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <strong>${inv.InvestorName}</strong>
+        <div style="font-size:0.75rem; color:var(--text-muted);">${inv.InvestorPhone || 'No Phone'} • <code>${inv.InvestorID || ''}</code></div>
+      </td>
+      <td><code>${inv.InvestmentID}</code></td>
+      <td><strong>${formatCurrency(inv.InvestmentAmount)}</strong></td>
+      <td>
+        <span class="badge badge-info" style="font-size:0.75rem;">${rateText}</span>
+      </td>
+      <td><span style="font-size:0.85rem;">${inv.RepaymentOption || 'Monthly Interest'}</span></td>
+      <td style="color:var(--success); font-weight:600;">${formatCurrency(inv.TotalRepaid)}</td>
+      <td style="color:${isSettled ? 'var(--success)' : 'var(--danger)'}; font-weight:800; font-size:1rem;">
+        ${formatCurrency(inv.Outstanding)}
+      </td>
+      <td>${inv.StartDate || '—'}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <div class="action-btn-group">
+          ${!isSettled ? `
+            <button class="btn btn-primary" style="padding:6px 10px; font-size:0.78rem;" onclick="openInvestorRepayModal('${inv.InvestmentID}')" title="Partial Repayment Entry">
+              <span class="material-symbols-rounded" style="font-size:16px;">payments</span>
+              <span>Repay</span>
+            </button>
+          ` : ''}
+          <button class="btn btn-secondary" style="padding:6px 10px; font-size:0.78rem;" onclick="openInvestorHistoryModal('${inv.InvestmentID}')" title="Repayment History">
+            <span class="material-symbols-rounded" style="font-size:16px;">history</span>
+            <span>History</span>
+          </button>
+          <button class="btn btn-secondary" style="padding:6px 8px;" onclick="editInvestment('${inv.InvestmentID}')" title="Edit Investment">
+            <span class="material-symbols-rounded" style="font-size:16px;">edit</span>
+          </button>
+          <button class="btn btn-secondary" style="padding:6px 8px; color:var(--danger);" onclick="deleteInvestment('${inv.InvestmentID}')" title="Delete Investment">
+            <span class="material-symbols-rounded" style="font-size:16px;">delete</span>
+          </button>
+        </div>
+      </td>
+    `;
+    table.appendChild(tr);
+
+    // Mobile Touch Card
+    const card = document.createElement('div');
+    card.className = 'mobile-data-card';
+    card.innerHTML = `
+      <div class="mobile-card-header">
+        <div>
+          <div class="mobile-card-title">${inv.InvestorName}</div>
+          <div class="mobile-card-subtitle"><code>${inv.InvestmentID}</code> • ${inv.InvestorPhone || 'No Phone'}</div>
+        </div>
+        ${statusBadge}
+      </div>
+      <div class="mobile-card-body">
+        <div class="mobile-card-field">
+          <span class="mobile-field-label">Capital Amount</span>
+          <span class="mobile-field-value">${formatCurrency(inv.InvestmentAmount)}</span>
+        </div>
+        <div class="mobile-card-field">
+          <span class="mobile-field-label">Outstanding Payable</span>
+          <span class="mobile-field-value" style="color:${isSettled ? 'var(--success)' : 'var(--danger)'}; font-weight:800; font-size:1.1rem;">
+            ${formatCurrency(inv.Outstanding)}
+          </span>
+        </div>
+        <div class="mobile-card-field">
+          <span class="mobile-field-label">Interest Rate</span>
+          <span class="mobile-field-value">${rateText}</span>
+        </div>
+        <div class="mobile-card-field">
+          <span class="mobile-field-label">Repayment Option</span>
+          <span class="mobile-field-value">${inv.RepaymentOption || 'Monthly Interest'}</span>
+        </div>
+        <div class="mobile-card-field">
+          <span class="mobile-field-label">Total Repaid</span>
+          <span class="mobile-field-value" style="color:var(--success)">${formatCurrency(inv.TotalRepaid)}</span>
+        </div>
+        <div class="mobile-card-field">
+          <span class="mobile-field-label">Start Date</span>
+          <span class="mobile-field-value">${inv.StartDate || '—'}</span>
+        </div>
+      </div>
+      <div class="mobile-card-footer" style="display:flex; flex-wrap:wrap; gap:8px;">
+        ${!isSettled ? `
+          <button class="btn btn-primary" style="flex:1;" onclick="openInvestorRepayModal('${inv.InvestmentID}')">
+            <span class="material-symbols-rounded" style="font-size:16px;">payments</span>
+            <span>Partial Repay</span>
+          </button>
+        ` : ''}
+        <button class="btn btn-secondary" style="flex:1;" onclick="openInvestorHistoryModal('${inv.InvestmentID}')">
+          <span class="material-symbols-rounded" style="font-size:16px;">history</span>
+          <span>History</span>
+        </button>
+        <button class="btn btn-secondary" style="padding:8px 12px;" onclick="editInvestment('${inv.InvestmentID}')" title="Edit Investment">
+          <span class="material-symbols-rounded" style="font-size:18px;">edit</span>
+        </button>
+        <button class="btn btn-secondary" style="padding:8px 12px; color:var(--danger);" onclick="deleteInvestment('${inv.InvestmentID}')" title="Delete Investment">
+          <span class="material-symbols-rounded" style="font-size:18px;">delete</span>
+        </button>
+      </div>
+    `;
+    cards.appendChild(card);
+  });
+}
+
+function handleInvestmentSearch(query) {
+  state.investmentSearchQuery = (query || '').trim();
+  renderInvestments();
+}
+
+function filterInvestments(status) {
+  state.investmentFilter = status;
+  ['invFilterAllBtn', 'invFilterActiveBtn', 'invFilterSettledBtn'].forEach((btnId) => {
+    const el = document.getElementById(btnId);
+    if (el) el.classList.remove('active');
+  });
+
+  if (status === 'all') {
+    const btn = document.getElementById('invFilterAllBtn');
+    if (btn) btn.classList.add('active');
+  } else if (status === 'Active') {
+    const btn = document.getElementById('invFilterActiveBtn');
+    if (btn) btn.classList.add('active');
+  } else if (status === 'Settled') {
+    const btn = document.getElementById('invFilterSettledBtn');
+    if (btn) btn.classList.add('active');
+  }
+
+  renderInvestments();
+}
+
 // ── 4. EMI Tracker View ──
 function renderEMIs(filter = 'all') {
   const table = document.getElementById('emiTableBody');
@@ -1181,16 +1477,31 @@ function closeModal(modalId) {
 }
 
 function updateCustomerDropdowns() {
-  const select = document.getElementById('loanCustomerSelect');
-  if (!select) return;
-  select.innerHTML = '<option value="">-- Choose Customer --</option>';
+  const loanSelect = document.getElementById('loanCustomerSelect');
+  if (loanSelect) {
+    const curVal = loanSelect.value;
+    loanSelect.innerHTML = '<option value="">-- Choose Customer --</option>';
+    state.customers.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c.CustomerID;
+      opt.textContent = `${c.Name} (${c.Phone || 'No Phone'})`;
+      loanSelect.appendChild(opt);
+    });
+    if (curVal) loanSelect.value = curVal;
+  }
 
-  state.customers.forEach((c) => {
-    const opt = document.createElement('option');
-    opt.value = c.CustomerID;
-    opt.textContent = `${c.Name} (${c.Phone})`;
-    select.appendChild(opt);
-  });
+  const invSelect = document.getElementById('invCustomerSelect');
+  if (invSelect) {
+    const curVal = invSelect.value;
+    invSelect.innerHTML = '<option value="">-- Choose an Investor from Customer List --</option>';
+    state.customers.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c.CustomerID;
+      opt.textContent = `${c.Name} (${c.Phone || 'No Phone'}) [${c.CustomerID}]`;
+      invSelect.appendChild(opt);
+    });
+    if (curVal) invSelect.value = curVal;
+  }
 }
 
 // ── Customer Operations ──
@@ -1940,7 +2251,7 @@ function showPaymentReceipt(pay, emi, loan) {
 
   container.innerHTML = `
     <div style="text-align:center; border-bottom:2px dashed #ccc; padding-bottom:12px; margin-bottom:14px;">
-      <h2 style="font-size:1.3rem; margin:0; font-weight:800; color:#1e1b4b;">FINANCE MONITOR PRO</h2>
+      <h2 style="font-size:1.3rem; margin:0; font-weight:800; color:#1e1b4b;">VR FINANCE</h2>
       <p style="margin:2px 0 0; font-size:0.8rem; color:#666;">OFFICIAL PAYMENT RECEIPT</p>
       <div style="font-size:0.75rem; color:#888;">Receipt #: <strong>${pay.PaymentID}</strong> • Date: ${pay.PaymentDate}</div>
     </div>
@@ -1966,6 +2277,404 @@ function showPaymentReceipt(pay, emi, loan) {
         <span>Collected By:</span>
         <span>${pay.ReceivedBy || 'Manager'}</span>
       </div>
+    </div>
+  `;
+
+  openModal('receiptModal');
+}
+
+// ═══════════════════ INVESTOR OPERATIONS & REPAYMENTS ═══════════════════
+function openNewInvestmentModal() {
+  const form = document.getElementById('investmentForm');
+  if (form) form.reset();
+  const editId = document.getElementById('invEditId');
+  if (editId) editId.value = '';
+
+  const titleEl = document.getElementById('investmentModalTitle');
+  if (titleEl) titleEl.textContent = 'New Investment Entry';
+  const btnText = document.getElementById('investmentSubmitBtnText');
+  if (btnText) btnText.textContent = 'Save Investment';
+
+  const dateInput = document.getElementById('invStartDateInput');
+  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+  updateCustomerDropdowns();
+  openModal('investmentModal');
+}
+
+function editInvestment(investmentId) {
+  const inv = (state.investments || []).find((i) => i.InvestmentID === investmentId);
+  if (!inv) {
+    showToast('Investment not found', 'error');
+    return;
+  }
+
+  updateCustomerDropdowns();
+
+  const editId = document.getElementById('invEditId');
+  if (editId) editId.value = inv.InvestmentID;
+
+  const select = document.getElementById('invCustomerSelect');
+  if (select) select.value = inv.InvestorID;
+
+  const amtInput = document.getElementById('invAmountInput');
+  if (amtInput) amtInput.value = inv.InvestmentAmount;
+
+  const rateInput = document.getElementById('invRateInput');
+  if (rateInput) rateInput.value = inv.InterestRate;
+
+  const rateTypeSelect = document.getElementById('invRateTypeSelect');
+  if (rateTypeSelect) rateTypeSelect.value = inv.InterestType || 'Yearly';
+
+  const repOptSelect = document.getElementById('invRepaymentOptionSelect');
+  if (repOptSelect) repOptSelect.value = inv.RepaymentOption || 'Monthly Interest (Principal at end)';
+
+  const startDateInput = document.getElementById('invStartDateInput');
+  if (startDateInput) {
+    const d = parseDate(inv.StartDate);
+    startDateInput.value = d.toISOString().split('T')[0];
+  }
+
+  const statusSelect = document.getElementById('invStatusSelect');
+  if (statusSelect) statusSelect.value = inv.Status || 'Active';
+
+  const notesInput = document.getElementById('invNotesInput');
+  if (notesInput) notesInput.value = inv.Notes || '';
+
+  const titleEl = document.getElementById('investmentModalTitle');
+  if (titleEl) titleEl.textContent = 'Edit Investment Details';
+  const btnText = document.getElementById('investmentSubmitBtnText');
+  if (btnText) btnText.textContent = 'Update Investment';
+
+  openModal('investmentModal');
+}
+
+function saveInvestment(e) {
+  e.preventDefault();
+  const editId = document.getElementById('invEditId') ? document.getElementById('invEditId').value : '';
+  const customerId = document.getElementById('invCustomerSelect').value;
+  const customer = state.customers.find((c) => c.CustomerID === customerId);
+
+  if (!customer) {
+    showToast('Please select a valid investor from the customer list', 'error');
+    return;
+  }
+
+  const amount = Number(document.getElementById('invAmountInput').value) || 0;
+  const rate = Number(document.getElementById('invRateInput').value) || 0;
+  const rateType = document.getElementById('invRateTypeSelect').value;
+  const repaymentOption = document.getElementById('invRepaymentOptionSelect').value;
+  const startDateVal = document.getElementById('invStartDateInput').value;
+  const status = document.getElementById('invStatusSelect').value;
+  const notes = document.getElementById('invNotesInput').value.trim();
+
+  if (amount <= 0) {
+    showToast('Please enter a valid investment amount', 'error');
+    return;
+  }
+
+  const todayStr = formatDate(new Date());
+
+  if (editId) {
+    // ── Update Existing Investment ──
+    const inv = state.investments.find((i) => i.InvestmentID === editId);
+    if (!inv) {
+      showToast('Investment not found', 'error');
+      return;
+    }
+
+    inv.InvestorID = customer.CustomerID;
+    inv.InvestorName = customer.Name;
+    inv.InvestorPhone = customer.Phone;
+    inv.InvestmentAmount = amount;
+    inv.InterestRate = rate;
+    inv.InterestType = rateType;
+    inv.RepaymentOption = repaymentOption;
+    inv.StartDate = formatDate(parseDate(startDateVal));
+    inv.Status = status;
+    inv.Notes = notes;
+
+    // Adjust outstanding if amount changed
+    const totalRepaid = Number(inv.TotalRepaid) || 0;
+    inv.Outstanding = Math.max(0, amount - totalRepaid);
+    if (inv.Outstanding === 0 && amount > 0) {
+      inv.Status = 'Settled';
+    }
+
+    saveDataLocally();
+    refreshUI();
+    closeModal('investmentModal');
+    showToast('Investment updated successfully!', 'success');
+
+    if (state.scriptUrl) {
+      callSheetApi('updateInvestment', inv);
+    }
+  } else {
+    // ── Create New Investment ──
+    const invId = 'INV-' + (1000 + (state.investments ? state.investments.length + 1 : 1));
+    const newInv = {
+      InvestmentID: invId,
+      InvestorID: customer.CustomerID,
+      InvestorName: customer.Name,
+      InvestorPhone: customer.Phone,
+      InvestmentAmount: amount,
+      InterestRate: rate,
+      InterestType: rateType,
+      RepaymentOption: repaymentOption,
+      TotalRepaid: 0,
+      Outstanding: amount,
+      StartDate: formatDate(parseDate(startDateVal)),
+      Status: status,
+      Notes: notes,
+      CreatedDate: todayStr
+    };
+
+    if (!state.investments) state.investments = [];
+    state.investments.unshift(newInv);
+
+    saveDataLocally();
+    refreshUI();
+    closeModal('investmentModal');
+    showToast(`Investment ${invId} recorded for ${customer.Name}!`, 'success');
+
+    if (state.scriptUrl) {
+      callSheetApi('addInvestment', newInv);
+    }
+  }
+}
+
+function deleteInvestment(investmentId) {
+  const inv = (state.investments || []).find((i) => i.InvestmentID === investmentId);
+  if (!inv) return;
+
+  const msg = `Are you sure you want to delete investment ${inv.InvestmentID} for ${inv.InvestorName}? All recorded repayments will also be removed.`;
+  if (!confirm(msg)) return;
+
+  state.investments = state.investments.filter((i) => i.InvestmentID !== investmentId);
+  if (state.investmentRepayments) {
+    state.investmentRepayments = state.investmentRepayments.filter((r) => r.InvestmentID !== investmentId);
+  }
+
+  saveDataLocally();
+  refreshUI();
+  showToast(`Investment ${investmentId} deleted.`, 'info');
+
+  if (state.scriptUrl) {
+    callSheetApi('deleteInvestment', { investmentId: investmentId });
+  }
+}
+
+// ── Partial Repayment Entry Handlers ──
+function openInvestorRepayModal(investmentId) {
+  const inv = (state.investments || []).find((i) => i.InvestmentID === investmentId);
+  if (!inv) {
+    showToast('Investment not found', 'error');
+    return;
+  }
+
+  document.getElementById('repayInvestmentId').value = inv.InvestmentID;
+  document.getElementById('repayInvestorNameDisplay').textContent = inv.InvestorName;
+  document.getElementById('repayInvestmentIdDisplay').textContent = `${inv.InvestmentID} • ${inv.InvestorPhone || 'No Phone'}`;
+  document.getElementById('repayOptionDisplay').textContent = inv.RepaymentOption || 'Monthly Interest';
+  document.getElementById('repayOriginalCapitalDisplay').textContent = formatCurrency(inv.InvestmentAmount);
+  document.getElementById('repayCurrentOutstandingDisplay').textContent = formatCurrency(inv.Outstanding);
+
+  const amtInput = document.getElementById('repayAmountInput');
+  if (amtInput) amtInput.value = '';
+
+  const dateInput = document.getElementById('repayDateInput');
+  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+  const typeSelect = document.getElementById('repayTypeSelect');
+  if (typeSelect) typeSelect.value = 'Principal Reduction';
+
+  const remarksInput = document.getElementById('repayRemarksInput');
+  if (remarksInput) remarksInput.value = '';
+
+  calcRepaymentPreview();
+  openModal('investorRepayModal');
+}
+
+function calcRepaymentPreview() {
+  const invId = document.getElementById('repayInvestmentId').value;
+  const inv = (state.investments || []).find((i) => i.InvestmentID === invId);
+  const curOut = inv ? (Number(inv.Outstanding) || 0) : 0;
+
+  const amt = Number(document.getElementById('repayAmountInput').value) || 0;
+  const type = document.getElementById('repayTypeSelect').value;
+
+  const previewBox = document.getElementById('repaymentBalancePreviewBox');
+  const previewVal = document.getElementById('repaymentNewOutstandingDisplay');
+  if (!previewVal || !previewBox) return;
+
+  if (type === 'Interest Payout') {
+    previewVal.textContent = formatCurrency(curOut);
+    previewVal.style.color = 'var(--info)';
+  } else {
+    const newBal = Math.max(0, curOut - amt);
+    previewVal.textContent = formatCurrency(newBal);
+    previewVal.style.color = newBal === 0 ? 'var(--success)' : (newBal < curOut ? 'var(--primary)' : 'var(--danger)');
+  }
+}
+
+function saveInvestorRepayment(e) {
+  e.preventDefault();
+  const invId = document.getElementById('repayInvestmentId').value;
+  const inv = (state.investments || []).find((i) => i.InvestmentID === invId);
+  if (!inv) {
+    showToast('Investment record not found', 'error');
+    return;
+  }
+
+  const amt = Number(document.getElementById('repayAmountInput').value);
+  if (amt <= 0) {
+    showToast('Please enter a valid repayment amount', 'error');
+    return;
+  }
+
+  const type = document.getElementById('repayTypeSelect').value;
+  const dateVal = document.getElementById('repayDateInput').value;
+  const mode = document.getElementById('repayModeSelect').value;
+  const paidBy = document.getElementById('repayPaidByInput').value.trim();
+  const remarks = document.getElementById('repayRemarksInput').value.trim();
+
+  const curOut = Number(inv.Outstanding) || 0;
+  if ((type === 'Principal Reduction' || type === 'Lumpsum') && amt > curOut) {
+    if (!confirm(`Repayment amount (${formatCurrency(amt)}) exceeds current outstanding (${formatCurrency(curOut)}). Proceed with full settlement?`)) {
+      return;
+    }
+  }
+
+  const repId = 'IRP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+  const repRecord = {
+    RepaymentID: repId,
+    InvestmentID: inv.InvestmentID,
+    InvestorID: inv.InvestorID,
+    InvestorName: inv.InvestorName,
+    Amount: amt,
+    PaymentDate: formatDate(parseDate(dateVal)),
+    RepaymentType: type,
+    PaymentMode: mode,
+    PaidBy: paidBy || 'Manager',
+    Remarks: remarks || `${type} payment`,
+    Timestamp: new Date().toLocaleString('en-IN')
+  };
+
+  if (!state.investmentRepayments) state.investmentRepayments = [];
+  state.investmentRepayments.unshift(repRecord);
+
+  // Update investment stats
+  inv.TotalRepaid = (Number(inv.TotalRepaid) || 0) + amt;
+  if (type === 'Principal Reduction' || type === 'Lumpsum') {
+    inv.Outstanding = Math.max(0, curOut - amt);
+    if (inv.Outstanding === 0) {
+      inv.Status = 'Settled';
+    }
+  }
+
+  saveDataLocally();
+  refreshUI();
+  closeModal('investorRepayModal');
+  showToast(`Repayment of ${formatCurrency(amt)} recorded for ${inv.InvestorName}!`, 'success');
+
+  if (state.scriptUrl) {
+    callSheetApi('recordInvestmentRepayment', { repayment: repRecord, investment: inv });
+  }
+
+  // Show printable Investor Payment Receipt
+  showInvestorReceipt(repRecord, inv);
+}
+
+function openInvestorHistoryModal(investmentId) {
+  const inv = (state.investments || []).find((i) => i.InvestmentID === investmentId);
+  if (!inv) {
+    showToast('Investment not found', 'error');
+    return;
+  }
+
+  const titleEl = document.getElementById('historyModalTitle');
+  const subEl = document.getElementById('historyModalSubtitle');
+  if (titleEl) titleEl.textContent = `${inv.InvestorName} — Repayment Ledger`;
+  if (subEl) subEl.textContent = `Investment ${inv.InvestmentID} • Total Repaid: ${formatCurrency(inv.TotalRepaid)} • Outstanding: ${formatCurrency(inv.Outstanding)}`;
+
+  const addBtn = document.getElementById('historyAddRepayBtn');
+  if (addBtn) {
+    addBtn.setAttribute('data-invid', inv.InvestmentID);
+    addBtn.style.display = inv.Status === 'Settled' ? 'none' : 'inline-flex';
+  }
+
+  const tbody = document.getElementById('investorHistoryTableBody');
+  tbody.innerHTML = '';
+
+  const history = (state.investmentRepayments || []).filter((r) => r.InvestmentID === investmentId);
+
+  if (history.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:24px;">No repayments recorded yet for this investment.</td></tr>`;
+  } else {
+    history.forEach((r) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${r.RepaymentID}</code></td>
+        <td>${r.PaymentDate}</td>
+        <td><strong style="color:var(--success)">${formatCurrency(r.Amount)}</strong></td>
+        <td><span class="badge ${r.RepaymentType === 'Principal Reduction' ? 'badge-primary' : 'badge-info'}">${r.RepaymentType}</span></td>
+        <td>${r.PaymentMode}</td>
+        <td>${r.PaidBy || '—'}</td>
+        <td style="color:var(--text-muted); font-size:0.85rem;">${r.Remarks || '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  openModal('investorHistoryModal');
+}
+
+function openInvestorRepayFromHistory() {
+  const addBtn = document.getElementById('historyAddRepayBtn');
+  const invId = addBtn ? addBtn.getAttribute('data-invid') : null;
+  closeModal('investorHistoryModal');
+  if (invId) {
+    openInvestorRepayModal(invId);
+  }
+}
+
+function showInvestorReceipt(rep, inv) {
+  const container = document.getElementById('printReceiptContent');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="text-align:center; border-bottom:2px dashed #ccc; padding-bottom:12px; margin-bottom:14px;">
+      <h2 style="font-size:1.3rem; margin:0; font-weight:800; color:#1e1b4b;">VR FINANCE</h2>
+      <p style="margin:2px 0 0; font-size:0.8rem; color:#666; text-transform:uppercase; letter-spacing:0.05em;">Investor Repayment Voucher</p>
+      <div style="font-size:0.75rem; color:#888;">Voucher #: <strong>${rep.RepaymentID}</strong> • Date: ${rep.PaymentDate}</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.85rem; margin-bottom:14px;">
+      <div><strong>Investor:</strong><br>${rep.InvestorName}</div>
+      <div><strong>Investment ID:</strong><br>${rep.InvestmentID}</div>
+      <div><strong>Repayment Type:</strong><br>${rep.RepaymentType}</div>
+      <div><strong>Payment Mode:</strong><br>${rep.PaymentMode}</div>
+    </div>
+
+    <div style="background:#f1f5f9; padding:12px; border-radius:6px; margin-bottom:14px; text-align:center;">
+      <div style="font-size:0.75rem; color:#555; text-transform:uppercase;">Amount Repaid</div>
+      <div style="font-size:1.6rem; font-weight:800; color:#10b981;">${formatCurrency(rep.Amount)}</div>
+    </div>
+
+    <div style="font-size:0.8rem; border-top:1px solid #eee; padding-top:10px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span>Remaining Outstanding:</span>
+        <strong style="color:#ef4444;">${formatCurrency(inv ? inv.Outstanding : 0)}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>Processed By:</span>
+        <span>${rep.PaidBy || 'Manager'}</span>
+      </div>
+      ${rep.Remarks ? `
+        <div style="margin-top:6px; font-size:0.75rem; color:#666;">
+          <strong>Ref / Remarks:</strong> ${rep.Remarks}
+        </div>
+      ` : ''}
     </div>
   `;
 
@@ -2056,6 +2765,12 @@ async function syncWithGoogleSheet(silent = false) {
       state.loans = data.loans || [];
       state.emis = data.emis || [];
       state.payments = data.payments || [];
+      if (data.investments && data.investments.length > 0) {
+        state.investments = data.investments;
+      }
+      if (data.investmentRepayments && data.investmentRepayments.length > 0) {
+        state.investmentRepayments = data.investmentRepayments;
+      }
       saveDataLocally();
       refreshUI();
       updateSyncStatus('online', 'Sheet Synced');
@@ -2080,6 +2795,7 @@ function updateSyncStatus(status, text) {
 function handleGlobalSearch(query) {
   const q = String(query).toLowerCase().trim();
   if (!q) {
+    state.investmentSearchQuery = '';
     refreshUI();
     return;
   }
@@ -2097,6 +2813,9 @@ function handleGlobalSearch(query) {
     state.loans = orig.filter((l) => l.CustomerName.toLowerCase().includes(q) || l.LoanID.toLowerCase().includes(q));
     renderLoans();
     state.loans = orig;
+  } else if (state.currentView === 'investments') {
+    state.investmentSearchQuery = q;
+    renderInvestments();
   } else if (state.currentView === 'emi') {
     const orig = state.emis;
     state.emis = orig.filter((e) => e.CustomerName.toLowerCase().includes(q) || e.LoanID.toLowerCase().includes(q));

@@ -1,6 +1,6 @@
 {
-  "name": "Finance Monitor Pro",
-  "short_name": "FinMonitor",
+  "name": "VR Finance",
+  "short_name": "VR Finance",
   "description": "Professional Mobile & Web Loan and EMI Management System backed by Google Sheets",
   "start_url": "./index.html",
   "display": "standalone",

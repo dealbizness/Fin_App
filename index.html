@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Finance Monitor Pro — Mobile & Web Cloud System</title>
+  <title>VR Finance — Mobile & Web Loan & Investment System</title>
 
   <!-- PWA Manifest & Icons -->
   <link rel="manifest" href="manifest.json">
@@ -37,8 +37,8 @@
           <span class="material-symbols-rounded">account_balance</span>
         </div>
         <div class="app-brand-title">
-          <span class="brand-name">FinMonitor</span>
-          <span class="brand-badge">Pro Edition</span>
+          <span class="brand-name">VR Finance</span>
+          <span class="brand-badge">Capital & Loans</span>
         </div>
       </div>
 
@@ -54,6 +54,10 @@
         <button class="nav-link" data-view="loans" onclick="switchView('loans')">
           <span class="material-symbols-rounded">account_balance_wallet</span>
           <span>Loans</span>
+        </button>
+        <button class="nav-link" data-view="investments" onclick="switchView('investments')">
+          <span class="material-symbols-rounded">trending_up</span>
+          <span>Investment</span>
         </button>
         <button class="nav-link" data-view="emi" onclick="switchView('emi')">
           <span class="material-symbols-rounded">calendar_month</span>
@@ -121,9 +125,13 @@
               <span class="material-symbols-rounded" style="color:var(--primary)">add_circle</span>
               <span>New Loan</span>
             </button>
+            <button class="quick-action-pill" onclick="openNewInvestmentModal()">
+              <span class="material-symbols-rounded" style="color:#8b5cf6">trending_up</span>
+              <span>Investment</span>
+            </button>
             <button class="quick-action-pill" onclick="openCustomerModal()">
               <span class="material-symbols-rounded" style="color:var(--info)">person_add</span>
-              <span>New Customer</span>
+              <span>New Contact</span>
             </button>
             <button class="quick-action-pill" onclick="syncWithGoogleSheet()">
               <span class="material-symbols-rounded" style="color:var(--warning)">sync</span>
@@ -360,7 +368,114 @@
           </div>
         </section>
 
-        <!-- ════════ 4. EMI TRACKER VIEW ════════ -->
+        <!-- ════════ 4. INVESTMENTS & INVESTOR MANAGEMENT VIEW ════════ -->
+        <section id="view-investments" class="view-section">
+
+          <!-- Investment Metric Stat Grid -->
+          <div class="metrics-grid" style="margin-bottom: 24px;">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                <span class="material-symbols-rounded">savings</span>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Total Capital Invested</span>
+                <span class="stat-value" id="statTotalInvested">₹0</span>
+                <span class="stat-sub" id="statTotalInvestmentsCount">0 Investments</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">
+                <span class="material-symbols-rounded">price_check</span>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Total Repaid to Investors</span>
+                <span class="stat-value" style="color: var(--success);" id="statTotalRepaidToInvestors">₹0</span>
+                <span class="stat-sub">Principal & Returns Paid</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">
+                <span class="material-symbols-rounded">account_balance</span>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Outstanding Payable</span>
+                <span class="stat-value" style="color: var(--danger);" id="statOutstandingToInvestors">₹0</span>
+                <span class="stat-sub">Remaining Capital Liability</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--info);">
+                <span class="material-symbols-rounded">group</span>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Active Investors</span>
+                <span class="stat-value" id="statActiveInvestors">0</span>
+                <span class="stat-sub">From Customer Directory</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Investment Management Card -->
+          <div class="card">
+            <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 class="card-title">
+                  <span class="material-symbols-rounded" style="color:#8b5cf6">trending_up</span>
+                  <span>Investor Capital & Repayment Ledger</span>
+                </h2>
+                <span class="card-subtitle">Track capital funding, repayment interest %, and partial repayment entries</span>
+              </div>
+              <div class="action-btn-group" style="flex-wrap: wrap;">
+                <div class="action-btn-group">
+                  <button class="btn btn-secondary active" id="invFilterAllBtn" onclick="filterInvestments('all')">All</button>
+                  <button class="btn btn-secondary" id="invFilterActiveBtn" onclick="filterInvestments('Active')">Active</button>
+                  <button class="btn btn-secondary" id="invFilterSettledBtn" onclick="filterInvestments('Settled')">Settled</button>
+                </div>
+                <button class="btn btn-primary" onclick="openNewInvestmentModal()">
+                  <span class="material-symbols-rounded">add</span>
+                  <span>New Investment</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Search and Filter Toolbar -->
+            <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+              <div class="search-input-wrapper" style="flex: 1; min-width: 240px;">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" id="investmentSearchInput" class="search-input" placeholder="Search investor name, ID, phone..." oninput="handleInvestmentSearch(this.value)">
+              </div>
+            </div>
+
+            <!-- Desktop Data Table -->
+            <div class="table-wrapper data-table-desktop">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Investor (Customer)</th>
+                    <th>Investment ID</th>
+                    <th>Investment Amount</th>
+                    <th>Interest Rate (%)</th>
+                    <th>Repayment Option</th>
+                    <th>Total Repaid</th>
+                    <th>Outstanding Amount</th>
+                    <th>Start Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="investmentsTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Mobile Touch Card List -->
+            <div class="mobile-card-list" id="investmentsMobileCards"></div>
+          </div>
+        </section>
+
+        <!-- ════════ 5. EMI TRACKER VIEW ════════ -->
         <section id="view-emi" class="view-section">
           <div class="card">
             <div class="card-header">
@@ -507,6 +622,10 @@
       <button class="bottom-nav-item" data-view="loans" onclick="switchView('loans')">
         <span class="material-symbols-rounded">wallet</span>
         <span>Loans</span>
+      </button>
+      <button class="bottom-nav-item" data-view="investments" onclick="switchView('investments')">
+        <span class="material-symbols-rounded">trending_up</span>
+        <span>Invest</span>
       </button>
       <button class="bottom-nav-item" data-view="emi" onclick="switchView('emi')">
         <span class="material-symbols-rounded">calendar_month</span>
@@ -881,6 +1000,243 @@
           <span class="material-symbols-rounded">print</span>
           <span>Print Receipt</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. New / Edit Investment Modal -->
+  <div class="modal-overlay" id="investmentModal">
+    <div class="modal-sheet" style="max-width: 620px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="investmentModalTitle">New Investment Entry</h3>
+          <span class="card-subtitle">Add investor capital from customer list with repayment terms</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('investmentModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <form id="investmentForm" onsubmit="saveInvestment(event)">
+        <div class="modal-body">
+          <input type="hidden" id="invEditId">
+
+          <!-- Investor Selection (Uses Customer List) -->
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label class="form-label" style="margin:0;">Select Investor (from Customer List) *</label>
+              <button type="button" onclick="openCustomerModal(); closeModal('investmentModal');" style="font-size:0.78rem; color:var(--primary); background:none; border:none; cursor:pointer; font-weight:600;">
+                + Add New Contact
+              </button>
+            </div>
+            <select id="invCustomerSelect" class="form-control" required>
+              <option value="">-- Choose an Investor from Customer List --</option>
+            </select>
+            <small style="color:var(--text-subtle); display:block; margin-top:4px;">
+              Investors are managed through your centralized customer directory.
+            </small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Investment Amount (₹) *</label>
+              <input type="number" id="invAmountInput" class="form-control" required min="100" step="1" placeholder="e.g. 200000">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Repayment Interest % *</label>
+              <input type="number" id="invRateInput" class="form-control" required min="0" step="0.01" placeholder="e.g. 1.5 or 12">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Interest Period</label>
+              <select id="invRateTypeSelect" class="form-control">
+                <option value="Monthly">Monthly (% per month)</option>
+                <option value="Yearly" selected>Yearly (% per annum)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Repayment Option *</label>
+              <select id="invRepaymentOptionSelect" class="form-control" required>
+                <option value="Monthly Interest (Principal at end)" selected>Monthly Interest (Principal at end)</option>
+                <option value="Quarterly Interest">Quarterly Interest</option>
+                <option value="Annual Return">Annual Return</option>
+                <option value="Bullet (Principal + Interest at Maturity)">Bullet (Principal + Interest at Maturity)</option>
+                <option value="Flexible Principal & Interest">Flexible Principal & Interest</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Investment Start Date *</label>
+              <input type="date" id="invStartDateInput" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select id="invStatusSelect" class="form-control">
+                <option value="Active" selected>Active</option>
+                <option value="Settled">Settled</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Remarks / Investor Bank Details</label>
+            <textarea id="invNotesInput" class="form-control" rows="2" placeholder="Bank A/C, IFSC, agreement notes or contact person"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('investmentModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="material-symbols-rounded">save</span>
+            <span id="investmentSubmitBtnText">Save Investment</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. Investor Partial Repayment Entry Modal -->
+  <div class="modal-overlay" id="investorRepayModal">
+    <div class="modal-sheet" style="max-width: 520px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Record Partial Repayment</h3>
+          <span class="card-subtitle">Pay principal reduction or interest returns to investor</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('investorRepayModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <form id="investorRepayForm" onsubmit="saveInvestorRepayment(event)">
+        <div class="modal-body">
+          <input type="hidden" id="repayInvestmentId">
+
+          <!-- Investor Summary Box -->
+          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div>
+                <strong id="repayInvestorNameDisplay" style="font-size:1.05rem;">Investor Name</strong>
+                <div id="repayInvestmentIdDisplay" style="font-size:0.8rem; color:var(--text-muted);">INV-1001</div>
+              </div>
+              <span class="badge badge-info" id="repayOptionDisplay">Monthly Interest</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">
+              <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Original Capital</div>
+                <div id="repayOriginalCapitalDisplay" style="font-size:1.05rem; font-weight:700;">₹0</div>
+              </div>
+              <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Current Outstanding</div>
+                <div id="repayCurrentOutstandingDisplay" style="font-size:1.2rem; font-weight:800; color:var(--danger);">₹0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Repayment Amount (₹) *</label>
+              <input type="number" id="repayAmountInput" class="form-control" required min="1" step="1" placeholder="Enter amount to repay" oninput="calcRepaymentPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Repayment Type *</label>
+              <select id="repayTypeSelect" class="form-control" onchange="calcRepaymentPreview()">
+                <option value="Principal Reduction" selected>Principal Reduction (Reduces Outstanding)</option>
+                <option value="Interest Payout">Interest Payout (Return on Capital)</option>
+                <option value="Lumpsum">Lumpsum (Principal & Interest)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Dynamic Remaining Balance Preview -->
+          <div id="repaymentBalancePreviewBox" style="background:rgba(16, 185, 129, 0.1); border:1px dashed var(--success); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.85rem; font-weight:600;">Estimated New Outstanding:</span>
+            <span id="repaymentNewOutstandingDisplay" style="font-weight:800; font-size:1.05rem; color:var(--success);">₹0</span>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Payment Date *</label>
+              <input type="date" id="repayDateInput" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Mode *</label>
+              <select id="repayModeSelect" class="form-control">
+                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+                <option value="Bank Transfer">Bank Transfer (NEFT / IMPS)</option>
+                <option value="Cash">Cash</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Paid / Processed By</label>
+              <input type="text" id="repayPaidByInput" class="form-control" placeholder="Admin / Manager">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Transaction Ref / Remarks</label>
+              <input type="text" id="repayRemarksInput" class="form-control" placeholder="UTR / Ref # or notes">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('investorRepayModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">
+            <span class="material-symbols-rounded">verified</span>
+            <span>Confirm & Record Repayment</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 9. Investor Repayment History Modal -->
+  <div class="modal-overlay" id="investorHistoryModal">
+    <div class="modal-sheet" style="max-width: 760px;">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="historyModalTitle">Repayment History Ledger</h3>
+          <span class="card-subtitle" id="historyModalSubtitle">Chronological list of all partial repayments</span>
+        </div>
+        <button class="btn-icon" onclick="closeModal('investorHistoryModal')">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 14px 20px;">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Repayment ID</th>
+                <th>Payment Date</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Mode</th>
+                <th>Paid By</th>
+                <th>Ref / Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="investorHistoryTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="historyAddRepayBtn" onclick="openInvestorRepayFromHistory()">
+          <span class="material-symbols-rounded">payments</span>
+          <span>New Repayment</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('investorHistoryModal')">Close</button>
       </div>
     </div>
   </div>

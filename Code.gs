@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  FINANCE MONITOR PRO — Server-Side Backend (Code.gs)
+//  VR FINANCE — Server-Side Backend (Code.gs)
 //  Google Apps Script Web Application & Headless REST API
 //  © 2026 — Zero-Error Production Build
 // ═══════════════════════════════════════════════════════════════
@@ -10,7 +10,9 @@ const SHEET_NAMES = {
   CUSTOMERS: 'Customers',
   LOANS: 'Loans',
   EMI_SCHEDULE: 'EMI_Schedule',
-  PAYMENTS: 'Payments'
+  PAYMENTS: 'Payments',
+  INVESTMENTS: 'Investments',
+  INVESTMENT_REPAYMENTS: 'Investment_Repayments'
 };
 
 // ─────────────────── WEB APP & REST API ENTRY ───────────────────
@@ -25,7 +27,7 @@ function doGet(e) {
   // Otherwise serve standard Web App HTML template
   const template = HtmlService.createTemplateFromFile('Index');
   return template.evaluate()
-    .setTitle('Finance Monitor Pro')
+    .setTitle('VR Finance')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -51,7 +53,7 @@ function handleApiGetRequest_(action, params) {
   try {
     switch (action) {
       case 'ping':
-        return { success: true, message: 'Finance Monitor Pro API Online' };
+        return { success: true, message: 'VR Finance API Online' };
       case 'getDashboardData':
         return {
           success: true,
@@ -59,6 +61,8 @@ function handleApiGetRequest_(action, params) {
           loans: getAllLoans(),
           emis: getAllEMIs(),
           payments: sheetToObjects_(SHEET_NAMES.PAYMENTS),
+          investments: getAllInvestments(),
+          investmentRepayments: sheetToObjects_(SHEET_NAMES.INVESTMENT_REPAYMENTS),
           summary: getDashboardData()
         };
       case 'getCustomers':
@@ -67,6 +71,8 @@ function handleApiGetRequest_(action, params) {
         return { success: true, data: getAllLoans() };
       case 'getEMIs':
         return { success: true, data: getAllEMIs() };
+      case 'getInvestments':
+        return { success: true, data: getAllInvestments() };
       case 'getReports':
         return { success: true, data: getOutstandingReport() };
       default:
@@ -96,6 +102,14 @@ function handleApiPostRequest_(action, data) {
         return markEMIPaid(data);
       case 'payPrincipal':
         return payPrincipal(data);
+      case 'addInvestment':
+        return addInvestment(data);
+      case 'updateInvestment':
+        return updateInvestment(data);
+      case 'deleteInvestment':
+        return deleteInvestment(data.investmentId);
+      case 'recordInvestmentRepayment':
+        return recordInvestmentRepayment(data);
       default:
         return { success: false, message: 'Unknown POST action: ' + action };
     }
@@ -182,6 +196,15 @@ function setupSheetHeaders_(sheet, name) {
     'Payments': [
       'PaymentID','LoanID','CustomerID','CustomerName','EMINumber',
       'Amount','PaymentDate','PaymentMode','ReceivedBy','Remarks','Timestamp'
+    ],
+    'Investments': [
+      'InvestmentID','InvestorID','InvestorName','InvestmentAmount','InterestRate',
+      'InterestType','RepaymentOption','TotalRepaid','Outstanding','StartDate',
+      'Status','Notes','CreatedDate'
+    ],
+    'Investment_Repayments': [
+      'RepaymentID','InvestmentID','InvestorID','InvestorName','Amount',
+      'PaymentDate','RepaymentType','PaymentMode','PaidBy','Remarks','Timestamp'
     ]
   };
 
@@ -1013,4 +1036,101 @@ function debugCustomers() {
   const list = getAllCustomers();
   Logger.log('getAllCustomers() returned ' + list.length + ' customers');
   Logger.log(JSON.stringify(list.slice(0, 2)));
+}
+
+// ─────────────────── INVESTMENTS & REPAYMENTS BACKEND ───────────────────
+function getAllInvestments() {
+  return sheetToObjects_(SHEET_NAMES.INVESTMENTS);
+}
+
+function addInvestment(data) {
+  const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+  const invId = data.InvestmentID || ('INV-' + (1000 + Math.max(sheet.getLastRow(), 1)));
+  const row = [
+    invId,
+    data.InvestorID || '',
+    data.InvestorName || '',
+    Number(data.InvestmentAmount) || 0,
+    Number(data.InterestRate) || 0,
+    data.InterestType || 'Yearly',
+    data.RepaymentOption || 'Monthly Interest (Principal at end)',
+    Number(data.TotalRepaid) || 0,
+    Number(data.Outstanding) !== undefined ? Number(data.Outstanding) : (Number(data.InvestmentAmount) || 0),
+    data.StartDate || '',
+    data.Status || 'Active',
+    data.Notes || '',
+    data.CreatedDate || new Date().toISOString().split('T')[0]
+  ];
+  sheet.appendRow(row);
+  return { success: true, investmentId: invId };
+}
+
+function updateInvestment(data) {
+  const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.InvestmentID)) {
+      if (data.InvestorID !== undefined) rows[i][1] = data.InvestorID;
+      if (data.InvestorName !== undefined) rows[i][2] = data.InvestorName;
+      if (data.InvestmentAmount !== undefined) rows[i][3] = Number(data.InvestmentAmount);
+      if (data.InterestRate !== undefined) rows[i][4] = Number(data.InterestRate);
+      if (data.InterestType !== undefined) rows[i][5] = data.InterestType;
+      if (data.RepaymentOption !== undefined) rows[i][6] = data.RepaymentOption;
+      if (data.TotalRepaid !== undefined) rows[i][7] = Number(data.TotalRepaid);
+      if (data.Outstanding !== undefined) rows[i][8] = Number(data.Outstanding);
+      if (data.StartDate !== undefined) rows[i][9] = data.StartDate;
+      if (data.Status !== undefined) rows[i][10] = data.Status;
+      if (data.Notes !== undefined) rows[i][11] = data.Notes;
+      sheet.getRange(i + 1, 1, 1, rows[i].length).setValues([rows[i]]);
+      return { success: true, message: 'Investment updated' };
+    }
+  }
+  return { success: false, message: 'Investment not found' };
+}
+
+function deleteInvestment(invId) {
+  const sheet = getSheet_(SHEET_NAMES.INVESTMENTS);
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(invId)) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+  // Delete associated repayments
+  const repSheet = getSheet_(SHEET_NAMES.INVESTMENT_REPAYMENTS);
+  const repRows = repSheet.getDataRange().getValues();
+  for (let i = repRows.length - 1; i >= 1; i--) {
+    if (String(repRows[i][1]) === String(invId)) {
+      repSheet.deleteRow(i + 1);
+    }
+  }
+  return { success: true, message: 'Investment and repayments deleted' };
+}
+
+function recordInvestmentRepayment(data) {
+  const rep = data.repayment || data;
+  const inv = data.investment;
+  const repSheet = getSheet_(SHEET_NAMES.INVESTMENT_REPAYMENTS);
+  const repId = rep.RepaymentID || ('IRP-' + Math.random().toString(36).substring(2, 7).toUpperCase());
+  const row = [
+    repId,
+    rep.InvestmentID || '',
+    rep.InvestorID || '',
+    rep.InvestorName || '',
+    Number(rep.Amount) || 0,
+    rep.PaymentDate || '',
+    rep.RepaymentType || 'Principal Reduction',
+    rep.PaymentMode || 'UPI',
+    rep.PaidBy || 'Manager',
+    rep.Remarks || '',
+    rep.Timestamp || new Date().toLocaleString()
+  ];
+  repSheet.appendRow(row);
+
+  // Update investment record if provided
+  if (inv) {
+    updateInvestment(inv);
+  }
+  return { success: true, repaymentId: repId };
 }
